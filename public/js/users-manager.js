@@ -114,7 +114,8 @@ class UsersManager {
                 { 
                     data: 'is_active',
                     render: (data) => {
-                        const isActive = data == 1 || data === true;
+                        // Accept 1, '1', true as active
+                        const isActive = data == 1 || data === true || data === '1';
                         return `<span class="status-badge ${isActive ? 'status-active' : 'status-inactive'}">${isActive ? 'Active' : 'Inactive'}</span>`;
                     }
                 },
@@ -297,176 +298,153 @@ class UsersManager {
     }
 
     generateUserForm(data = null) {
-        const userName = data ? data.name : '';
-        const userEmail = data ? data.email : '';
-        const userPhone = data ? data.phone : '';
-        const userRole = data ? data.role : 'customer';
-        const userAddress = data ? data.address : '';
+        const userRole = data ? data.role : 'user';
         const userActive = data ? (data.is_active ? 'checked' : '') : 'checked';
-        const userNewsletter = data ? (data.newsletter_subscribed ? 'checked' : '') : '';
-        
-        const formHtml = `
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold text-primary">
-                            <i class="fas fa-user me-2"></i>Full Name *
-                        </label>
-                        <input type="text" 
-                               class="form-control" 
-                               name="name" 
-                               placeholder="Enter full name"
-                               value="${userName}"
-                               required>
-                        <small class="form-text text-muted">User's complete name</small>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold text-primary">
-                            <i class="fas fa-envelope me-2"></i>Email *
-                        </label>
-                        <input type="email" 
-                               class="form-control" 
-                               name="email" 
-                               placeholder="Enter email address"
-                               value="${userEmail}"
-                               required>
-                        <small class="form-text text-muted">Must be a valid email address</small>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold text-primary">
-                            <i class="fas fa-phone me-2"></i>Phone
-                        </label>
-                        <input type="tel" 
-                               class="form-control" 
-                               name="phone" 
-                               placeholder="Enter phone number"
-                               value="${userPhone}">
-                        <small class="form-text text-muted">Contact phone number (optional)</small>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold text-primary">
-                            <i class="fas fa-user-shield me-2"></i>Role *
-                        </label>
-                        <select class="form-select" name="role" required>
-                            <option value="customer" ${userRole === 'customer' ? 'selected' : ''}>Customer</option>
-                            <option value="admin" ${userRole === 'admin' ? 'selected' : ''}>Administrator</option>
-                        </select>
-                        <small class="form-text text-muted">User access level</small>
-                    </div>
-                </div>
-                <div class="col-12">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold text-primary">
-                            <i class="fas fa-map-marker-alt me-2"></i>Address
-                        </label>
-                        <textarea class="form-control" 
-                                  name="address" 
-                                  rows="3" 
-                                  placeholder="Enter address">${userAddress}</textarea>
-                        <small class="form-text text-muted">User's address (optional)</small>
-                    </div>
-                </div>
-                ${this.currentMode === 'add' ? `
-                <div class="col-12">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold text-primary">
-                            <i class="fas fa-lock me-2"></i>Password *
-                        </label>
-                        <input type="password" 
-                               class="form-control" 
-                               name="password" 
-                               placeholder="Enter password"
-                               required>
-                        <small class="form-text text-muted">Minimum 6 characters required</small>
-                    </div>
-                </div>
-                ` : ''}
-                <div class="col-md-6">
-                    <div class="mb-3">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" 
-                                   type="checkbox" 
-                                   name="is_active" 
-                                   id="userActiveSwitch"
-                                   ${userActive}>
-                            <label class="form-check-label fw-bold text-primary" for="userActiveSwitch">
-                                <i class="fas fa-toggle-on me-2"></i>Active Status
+        let formHtml = '';
+        if (this.currentMode === 'add') {
+            // Full form for adding new user
+            formHtml = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-primary">
+                                <i class="fas fa-user me-2"></i>Full Name *
                             </label>
+                            <input type="text" class="form-control" name="name" placeholder="Enter full name" value="${data ? data.name : ''}" required>
+                            <small class="form-text text-muted">User's complete name</small>
                         </div>
-                        <small class="form-text text-muted">Enable/disable user account</small>
                     </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="mb-3">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" 
-                                   type="checkbox" 
-                                   name="newsletter_subscribed"
-                                   id="userNewsletterSwitch"
-                                   ${userNewsletter}>
-                            <label class="form-check-label fw-bold text-primary" for="userNewsletterSwitch">
-                                <i class="fas fa-envelope-open me-2"></i>Newsletter Subscription
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-primary">
+                                <i class="fas fa-envelope me-2"></i>Email *
                             </label>
+                            <input type="email" class="form-control" name="email" placeholder="Enter email address" value="${data ? data.email : ''}" required>
+                            <small class="form-text text-muted">Must be a valid email address</small>
                         </div>
-                        <small class="form-text text-muted">Subscribe to newsletter updates</small>
+                    </div>
+                    <div class="col-12">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-primary">
+                                <i class="fas fa-lock me-2"></i>Password *
+                            </label>
+                            <input type="password" class="form-control" name="password" placeholder="Enter password" required>
+                            <small class="form-text text-muted">Minimum 6 characters required</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-primary">
+                                <i class="fas fa-user-shield me-2"></i>Role *
+                            </label>
+                            <select class="form-select" name="role" required>
+                                <option value="user" ${userRole === 'user' ? 'selected' : ''}>Customer</option>
+                                <option value="admin" ${userRole === 'admin' ? 'selected' : ''}>Administrator</option>
+                            </select>
+                            <small class="form-text text-muted">User access level</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="is_active" id="userActiveSwitch" ${userActive}>
+                                <label class="form-check-label fw-bold text-primary" for="userActiveSwitch">
+                                    <i class="fas fa-toggle-on me-2"></i>Active Status
+                                </label>
+                            </div>
+                            <small class="form-text text-muted">Enable/disable user account</small>
+                        </div>
                     </div>
                 </div>
-            </div>
-        `;
-        
+            `;
+        } else {
+            // Only allow editing role and is_active for existing users
+            formHtml = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-primary">
+                                <i class="fas fa-user-shield me-2"></i>Role *
+                            </label>
+                            <select class="form-select" name="role" required>
+                                <option value="user" ${userRole === 'user' ? 'selected' : ''}>Customer</option>
+                                <option value="admin" ${userRole === 'admin' ? 'selected' : ''}>Administrator</option>
+                            </select>
+                            <small class="form-text text-muted">User access level</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="is_active" id="userActiveSwitch" ${userActive}>
+                                <label class="form-check-label fw-bold text-primary" for="userActiveSwitch">
+                                    <i class="fas fa-toggle-on me-2"></i>Active Status
+                                </label>
+                            </div>
+                            <small class="form-text text-muted">Enable/disable user account</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
         $('#userFormFields').html(formHtml);
     }
 
     async saveUser() {
-        const formData = new FormData($('#userForm')[0]);
-        
+        const form = $('#userForm')[0];
+        const formData = new FormData(form);
+        const isEdit = this.currentMode === 'edit';
+        const id = this.currentId;
+        let payload = {};
+        if (isEdit) {
+            // Only send role and is_active for edit
+            payload.role = formData.get('role');
+            payload.is_active = formData.get('is_active') === 'on' ? 1 : 0;
+        } else {
+            // For add, send all fields
+            payload.name = formData.get('name');
+            payload.email = formData.get('email');
+            payload.password = formData.get('password');
+            payload.role = formData.get('role');
+            payload.is_active = formData.get('is_active') === 'on' ? 1 : 0;
+        }
         try {
-            console.log(`💾 Saving user (${this.currentMode} mode)...`);
-            $('#saveUserButton').prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Saving...');
-            
-            const url = this.currentMode === 'add' ? '/api/users' : `/api/users/${this.currentId}`;
-            const method = this.currentMode === 'add' ? 'POST' : 'PUT';
-            
-            const response = await $.ajax({
-                url: url,
-                method: method,
-                data: formData,
-                processData: false,
-                contentType: false,
-                headers: {
-                    'Authorization': `Bearer ${window.adminAuth.getToken()}`
-                }
-            });
-            
+            let response;
+            if (isEdit) {
+                response = await $.ajax({
+                    url: `/api/users/${id}`,
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${window.adminAuth.getToken()}`,
+                        'Content-Type': 'application/json'
+                    },
+                    data: JSON.stringify(payload)
+                });
+            } else {
+                response = await $.ajax({
+                    url: '/api/users',
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${window.adminAuth.getToken()}`,
+                        'Content-Type': 'application/json'
+                    },
+                    data: JSON.stringify(payload)
+                });
+            }
             if (response.success) {
-                console.log(`✅ User ${this.currentMode === 'add' ? 'created' : 'updated'} successfully`);
                 Swal.fire({
                     icon: 'success',
                     title: 'Success!',
-                    text: `User ${this.currentMode === 'add' ? 'created' : 'updated'} successfully.`,
-                    timer: 2000,
-                    showConfirmButton: false
+                    text: isEdit ? 'User updated successfully' : 'User added successfully'
                 });
                 $('#userModal').modal('hide');
                 this.refreshTable();
             } else {
-                this.showError('Error', response.message || 'Operation failed');
+                this.showError('Error', response.message || 'Failed to save user');
             }
         } catch (error) {
-            console.error('❌ Save user error:', error);
-            let errorMessage = 'Failed to save user';
-            if (error.responseJSON && error.responseJSON.message) {
-                errorMessage = error.responseJSON.message;
-            }
-            this.showError('Error', errorMessage);
-        } finally {
-            $('#saveUserButton').prop('disabled', false).html('<i class="fas fa-save me-2"></i>Save User');
+            console.error('Save user error:', error);
+            this.showError('Error', 'Failed to save user');
         }
     }
 

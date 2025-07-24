@@ -433,13 +433,23 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
             // Hash password
             const hashedPassword = await bcrypt.hash(password, 10);
 
+            // Ensure is_active is 1 (active) or 0 (inactive)
+            let activeValue = 1;
+            if (typeof is_active !== 'undefined') {
+                if (is_active === true || is_active === 1 || is_active === '1' || is_active === 'on') {
+                    activeValue = 1;
+                } else {
+                    activeValue = 0;
+                }
+            }
+
             // Insert new user
             const insertUserQuery = `
                 INSERT INTO users (name, email, phone, address, password, role, is_active, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
             `;
 
-            db.query(insertUserQuery, [name, email, phone, address, hashedPassword, role || 'user', is_active !== false], (err, result) => {
+            db.query(insertUserQuery, [name, email, phone, address, hashedPassword, role || 'user', activeValue], (err, result) => {
                 if (err) {
                     console.error('Database error:', err);
                     return res.status(500).json({
@@ -470,44 +480,23 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // Update User (Admin Only)
+// Update User Role and Status (Admin Only)
 router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
     const userId = req.params.id;
-    const { name, email, phone, address, role, is_active } = req.body;
+    const { role, is_active } = req.body;
 
-    // Validate required fields
-    if (!name || !email) {
+    // Validate role if provided
+    if (role && !['user', 'admin'].includes(role)) {
         return res.status(400).json({
             success: false,
-            message: 'Name and email are required'
+            message: 'Invalid role. Must be "user" or "admin"'
         });
     }
 
-    // Check if email exists for another user
-    const checkEmailQuery = 'SELECT id FROM users WHERE email = ? AND id != ?';
-    db.query(checkEmailQuery, [email, userId], (err, results) => {
-        if (err) {
-            console.error('Database error:', err);
-            return res.status(500).json({
-                success: false,
-                message: 'Database error occurred'
-            });
-        }
-
-        if (results.length > 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'Email already exists'
-            });
-        }
-
-        // Update user
-        const updateUserQuery = `
-            UPDATE users 
-            SET name = ?, email = ?, phone = ?, address = ?, role = ?, is_active = ?
-            WHERE id = ?
-        `;
-
-        db.query(updateUserQuery, [name, email, phone, address, role, is_active, userId], (err, result) => {
+    // Only allow updating role and is_active
+    if (typeof role !== 'undefined' && typeof is_active !== 'undefined') {
+        const updateQuery = 'UPDATE users SET role = ?, is_active = ? WHERE id = ?';
+        db.query(updateQuery, [role, is_active, userId], (err, result) => {
             if (err) {
                 console.error('Database error:', err);
                 return res.status(500).json({
@@ -515,20 +504,65 @@ router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
                     message: 'Error updating user'
                 });
             }
-
             if (result.affectedRows === 0) {
                 return res.status(404).json({
                     success: false,
                     message: 'User not found'
                 });
             }
-
             res.json({
                 success: true,
-                message: 'User updated successfully'
+                message: 'User role and status updated successfully'
             });
         });
-    });
+    } else if (typeof role !== 'undefined') {
+        const updateQuery = 'UPDATE users SET role = ? WHERE id = ?';
+        db.query(updateQuery, [role, userId], (err, result) => {
+            if (err) {
+                console.error('Database error:', err);
+                return res.status(500).json({
+                    success: false,
+                    message: 'Error updating user role'
+                });
+            }
+            if (result.affectedRows === 0) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'User not found'
+                });
+            }
+            res.json({
+                success: true,
+                message: 'User role updated successfully'
+            });
+        });
+    } else if (typeof is_active !== 'undefined') {
+        const updateQuery = 'UPDATE users SET is_active = ? WHERE id = ?';
+        db.query(updateQuery, [is_active, userId], (err, result) => {
+            if (err) {
+                console.error('Database error:', err);
+                return res.status(500).json({
+                    success: false,
+                    message: 'Error updating user status'
+                });
+            }
+            if (result.affectedRows === 0) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'User not found'
+                });
+            }
+            res.json({
+                success: true,
+                message: 'User status updated successfully'
+            });
+        });
+    } else {
+        res.status(400).json({
+            success: false,
+            message: 'No valid fields to update. Only role and is_active can be changed.'
+        });
+    }
 });
 
 // Update User Status (Admin Only)

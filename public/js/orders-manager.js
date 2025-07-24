@@ -49,6 +49,22 @@ class OrdersManager {
         $('#selectAllOrders').on('change', (e) => {
             $('#ordersTable tbody input[type="checkbox"]').prop('checked', e.target.checked);
         });
+
+        // Status update button
+        $('#saveStatusUpdateBtn').on('click', () => this.updateOrderStatus());
+        // Action buttons (event delegation for DataTables rows)
+        $('#ordersTable tbody').on('click', '.btn-view', (e) => {
+            const id = $(e.currentTarget).data('id');
+            this.viewOrder(id);
+        });
+        $('#ordersTable tbody').on('click', '.btn-edit', (e) => {
+            const id = $(e.currentTarget).data('id');
+            this.editOrderStatus(id);
+        });
+        $('#ordersTable tbody').on('click', '.btn-delete', (e) => {
+            const id = $(e.currentTarget).data('id');
+            this.deleteOrder(id);
+        });
     }
 
     async loadCustomers() {
@@ -93,16 +109,18 @@ class OrdersManager {
 
     async initializeTable() {
         console.log('📋 Initializing Orders Table...');
-        
         const token = window.adminAuth.getToken();
-        
         this.ordersTable = $('#ordersTable').DataTable({
             ajax: {
                 url: '/api/orders/admin/all',
                 type: 'GET',
-                headers: { 
+                headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
+                },
+                data: function(d) {
+                    // Pass DataTables server-side params to backend
+                    return d;
                 },
                 dataSrc: function(json) {
                     console.log('📋 Orders API Response:', json);
@@ -125,17 +143,17 @@ class OrdersManager {
                 }
             },
             columns: [
-                { 
+                { // 0: Checkbox
                     data: null,
                     orderable: false,
                     searchable: false,
                     render: (data, type, row) => `<input type="checkbox" value="${row.id}">`
                 },
-                { 
+                { // 1: Order ID
                     data: 'order_number',
                     render: (data, type, row) => `<strong>#${data || row.id}</strong>`
                 },
-                { 
+                { // 2: Customer
                     data: null,
                     render: (data, type, row) => {
                         const customerName = row.customer_name || 'Unknown Customer';
@@ -148,43 +166,44 @@ class OrdersManager {
                         `;
                     }
                 },
-                { 
+                { // 3: Items
                     data: 'item_count',
                     render: (data) => {
                         const count = data || 0;
                         return `<span class="badge bg-secondary">${count} items</span>`;
                     }
                 },
-                { 
+                { // 4: Total
                     data: 'total_amount',
                     render: (data) => data ? `$${parseFloat(data).toFixed(2)}` : '$0.00'
                 },
-                { 
+                { // 5: Status
                     data: 'status',
                     render: (data) => {
                         const statusClass = `status-${(data || 'pending').toLowerCase()}`;
                         return `<span class="order-status ${statusClass}">${(data || 'pending').toUpperCase()}</span>`;
                     }
                 },
-                { 
+                { // 6: Payment
                     data: 'payment_status',
                     render: (data) => {
                         const statusClass = `payment-${(data || 'pending').toLowerCase()}`;
                         return `<span class="payment-status ${statusClass}">${(data || 'pending').toUpperCase()}</span>`;
                     }
                 },
-                { 
+                { // 7: Date
                     data: 'created_at',
                     render: (data) => data ? new Date(data).toLocaleDateString() : 'N/A'
                 },
-                {
+                { // 8: Actions
                     data: null,
                     orderable: false,
                     searchable: false,
                     render: (data, type, row) => this.getActionButtons(row.id)
                 }
             ],
-            ...this.getTableConfig()
+            ...this.getTableConfig(),
+            serverSide: true
         });
     }
 
@@ -192,7 +211,6 @@ class OrdersManager {
         return {
             responsive: true,
             processing: true,
-            serverSide: false,
             pageLength: 25,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
             dom: 'Bfrtip',
@@ -257,13 +275,13 @@ class OrdersManager {
     getActionButtons(id) {
         return `
             <div class="btn-group" role="group">
-                <button class="action-btn btn-view" onclick="ordersManager.viewOrder(${id})" title="View">
+                <button class="action-btn btn-view" data-id="${id}" title="View">
                     <i class="fas fa-eye"></i>
                 </button>
-                <button class="action-btn btn-edit" onclick="ordersManager.editOrderStatus(${id})" title="Update Status">
+                <button class="action-btn btn-edit" data-id="${id}" title="Update Status">
                     <i class="fas fa-edit"></i>
                 </button>
-                <button class="action-btn btn-delete" onclick="ordersManager.deleteOrder(${id})" title="Cancel Order">
+                <button class="action-btn btn-delete" data-id="${id}" title="Cancel Order">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
@@ -284,17 +302,17 @@ class OrdersManager {
         $('#orderModal').modal('show');
     }
 
+
     async editOrderStatus(id) {
         try {
             const response = await $.ajax({
-                url: `/api/orders/${id}`,
+                url: `/api/orders/admin/${id}`,
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${window.adminAuth.getToken()}`,
                     'Content-Type': 'application/json'
                 }
             });
-            
             if (response.success) {
                 this.showStatusUpdateModal(response.data);
             } else {
@@ -309,14 +327,13 @@ class OrdersManager {
     async viewOrder(id) {
         try {
             const response = await $.ajax({
-                url: `/api/orders/${id}`,
+                url: `/api/orders/admin/${id}`,
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${window.adminAuth.getToken()}`,
                     'Content-Type': 'application/json'
                 }
             });
-            
             if (response.success) {
                 this.showOrderViewModal(response.data);
             } else {
@@ -327,6 +344,46 @@ class OrdersManager {
             this.showError('Error', 'Failed to load order data');
         }
     }
+
+    async updateOrderStatus() {
+        const orderId = $('#statusOrderId').val();
+        const newStatus = $('#newStatus').val();
+        const notes = $('#statusNotes').val();
+        if (!newStatus) {
+            this.showError('Error', 'Please select a status');
+            return;
+        }
+        try {
+            const response = await $.ajax({
+                url: `/api/orders/admin/${orderId}/status`,
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${window.adminAuth.getToken()}`,
+                    'Content-Type': 'application/json'
+                },
+                data: JSON.stringify({
+                    status: newStatus,
+                    notes: notes
+                })
+            });
+            if (response.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: 'Order status updated successfully'
+                });
+                $('#statusUpdateModal').modal('hide');
+                this.refreshTable();
+            } else {
+                this.showError('Error', response.message || 'Failed to update order status');
+            }
+        } catch (error) {
+            console.error('Update status error:', error);
+            this.showError('Error', 'Failed to update order status');
+        }
+    }
+
+    // ...existing code...
 
     async deleteOrder(id) {
         const result = await Swal.fire({
@@ -343,7 +400,7 @@ class OrdersManager {
         if (result.isConfirmed) {
             try {
                 const response = await $.ajax({
-                    url: `/api/orders/${id}`,
+                    url: `/api/orders/admin/${id}`,
                     method: 'DELETE',
                     headers: {
                         'Authorization': `Bearer ${window.adminAuth.getToken()}`,
@@ -439,7 +496,7 @@ class OrdersManager {
 
         try {
             const response = await $.ajax({
-                url: `/api/orders/${orderId}/status`,
+                url: `/api/orders/admin/${orderId}/status`,
                 method: 'PATCH',
                 headers: {
                     'Authorization': `Bearer ${window.adminAuth.getToken()}`,
@@ -457,7 +514,6 @@ class OrdersManager {
                     title: 'Success!',
                     text: 'Order status updated successfully'
                 });
-                
                 $('#statusUpdateModal').modal('hide');
                 this.refreshTable();
             } else {
@@ -598,3 +654,46 @@ $(document).ready(() => {
         window.ordersManager = new OrdersManager();
     }
 });
+
+// Add this HTML snippet to your admin page (e.g., admin-dashboard.html or orders-manager.html):
+/*
+<div class="modal fade" id="statusUpdateModal" tabindex="-1" aria-labelledby="statusUpdateModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="statusUpdateModalLabel"><i class="fas fa-edit me-2"></i>Update Order Status</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="statusOrderId">
+        <div class="mb-3">
+          <label class="form-label">Current Status:</label>
+          <span id="currentStatus" class="fw-bold"></span>
+        </div>
+        <div class="mb-3">
+          <label for="newStatus" class="form-label">New Status</label>
+          <select id="newStatus" class="form-select">
+            <option value="pending">Pending</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="processing">Processing</option>
+            <option value="shipped">Shipped</option>
+            <option value="delivered">Delivered</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="refunded">Refunded</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label for="statusNotes" class="form-label">Admin Notes (optional)</label>
+          <textarea id="statusNotes" class="form-control" rows="2"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" id="saveStatusUpdateBtn">
+          <i class="fas fa-save me-2"></i>Update Status
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+*/

@@ -507,6 +507,121 @@ router.get('/admin/all', authenticateToken, async (req, res) => {
     }
 });
 
+// Admin: Get specific order details
+router.get('/admin/:id', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
+    const connection = await mysql.createConnection(dbConfig);
+    try {
+        const { id } = req.params;
+        // Get order details
+        const [orders] = await connection.execute(`
+            SELECT o.*, u.name as customer_name, u.email as customer_email
+            FROM orders o
+            LEFT JOIN users u ON o.user_id = u.id
+            WHERE o.id = ?
+        `, [id]);
+        if (orders.length === 0) {
+            return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+        const order = orders[0];
+        // Get order items
+        const [items] = await connection.execute(`
+            SELECT oi.*, p.name as product_name, p.main_image as product_image
+            FROM order_items oi
+            LEFT JOIN products p ON oi.product_id = p.id
+            WHERE oi.order_id = ?
+        `, [id]);
+        order.order_items = items;
+        res.json({ success: true, data: order });
+    } catch (error) {
+        console.error('Admin get order details error:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch order details' });
+    } finally {
+        await connection.end();
+    }
+});
+
+// Admin: Update order status
+router.patch('/admin/:id/status', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
+    const connection = await mysql.createConnection(dbConfig);
+    try {
+        const { id } = req.params;
+        const { status, notes } = req.body;
+        if (!status) {
+            return res.status(400).json({ success: false, message: 'Status is required' });
+        }
+        // Determine new payment_status based on status
+        let paymentStatusUpdate = null;
+        if (status === 'delivered') {
+            paymentStatusUpdate = 'paid';
+        } else if (status === 'refunded') {
+            paymentStatusUpdate = 'refunded';
+        } else if (status === 'cancelled') {
+            paymentStatusUpdate = 'cancelled';
+        }
+
+        // Always update payment_status if needed, regardless of notes being undefined, null, or empty
+        if (paymentStatusUpdate) {
+            if (typeof notes === 'undefined') {
+                await connection.execute(`
+                    UPDATE orders SET status = ?, payment_status = ?, updated_at = NOW() WHERE id = ?
+                `, [status, paymentStatusUpdate, id]);
+            } else {
+                await connection.execute(`
+                    UPDATE orders SET status = ?, notes = ?, payment_status = ?, updated_at = NOW() WHERE id = ?
+                `, [status, notes, paymentStatusUpdate, id]);
+            }
+        } else {
+            if (typeof notes === 'undefined') {
+                await connection.execute(`
+                    UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?
+                `, [status, id]);
+            } else {
+                await connection.execute(`
+                    UPDATE orders SET status = ?, notes = ?, updated_at = NOW() WHERE id = ?
+                `, [status, notes, id]);
+            }
+        }
+        res.json({ success: true, message: 'Order status and payment status updated successfully' });
+    } catch (error) {
+        console.error('Admin update order status error:', error);
+        res.status(500).json({ success: false, message: 'Failed to update order status' });
+    } finally {
+        await connection.end();
+    }
+});
+
+// Admin: Delete/cancel order
+router.delete('/admin/:id', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
+    const connection = await mysql.createConnection(dbConfig);
+    try {
+        const { id } = req.params;
+        // Check if order exists
+        const [orders] = await connection.execute('SELECT id FROM orders WHERE id = ?', [id]);
+        if (orders.length === 0) {
+            return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+        // Delete order items first (if needed)
+        await connection.execute('DELETE FROM order_items WHERE order_id = ?', [id]);
+        // Delete order
+        await connection.execute('DELETE FROM orders WHERE id = ?', [id]);
+        res.json({ success: true, message: 'Order deleted successfully' });
+    } catch (error) {
+        console.error('Admin delete order error:', error);
+        res.status(500).json({ success: false, message: 'Failed to delete order' });
+    } finally {
+        await connection.end();
+    }
+});
+
 // Get user orders with detailed information for customer dashboard
 router.get('/my-orders', authenticateToken, async (req, res) => {
     const connection = await mysql.createConnection(dbConfig);
