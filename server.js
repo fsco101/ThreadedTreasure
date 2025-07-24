@@ -46,6 +46,10 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/upload', uploadRoutes);
 
+// Dashboard charts API
+const dashboardChartsRoutes = require('./routes/dashboardCharts');
+app.use('/api/dashboard-charts', dashboardChartsRoutes);
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({

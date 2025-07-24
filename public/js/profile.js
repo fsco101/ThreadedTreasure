@@ -126,7 +126,7 @@ class ProfileManager {
         // Header information
         document.getElementById('profile-name').textContent = user.name || 'User';
         document.getElementById('profile-email').textContent = user.email || 'email@example.com';
-        
+
         // Member since
         if (user.created_at) {
             const memberSince = new Date(user.created_at).getFullYear();
@@ -138,12 +138,6 @@ class ProfileManager {
         document.getElementById('email').value = user.email || '';
         document.getElementById('phone').value = user.phone || '';
         document.getElementById('address').value = user.address || '';
-        
-        // Handle date of birth if it exists
-        if (user.date_of_birth) {
-            const dob = new Date(user.date_of_birth);
-            document.getElementById('date_of_birth').value = dob.toISOString().split('T')[0];
-        }
 
         // Avatar
         if (user.profile_photo) {
@@ -160,7 +154,16 @@ class ProfileManager {
 
     async updateProfile() {
         const formData = new FormData(document.getElementById('personal-info-form'));
-        const profileData = Object.fromEntries(formData.entries());
+        let profileData = Object.fromEntries(formData.entries());
+        // Only keep fields that exist in the DB: name, email, phone, address
+        const allowedFields = ['name', 'email', 'phone', 'address'];
+        Object.keys(profileData).forEach(key => {
+            if (!allowedFields.includes(key)) {
+                delete profileData[key];
+            } else if (profileData[key] === '' || typeof profileData[key] === 'undefined') {
+                profileData[key] = null;
+            }
+        });
 
         try {
             const response = await fetch(`${API_BASE_URL}/users/profile`, {
@@ -175,7 +178,6 @@ class ProfileManager {
                 this.showAlert('profile-alerts', 'Profile updated successfully!', 'success');
                 this.currentUser = data.data;
                 this.populateProfile(data.data);
-                
                 // Update localStorage
                 localStorage.setItem('userData', JSON.stringify(data.data));
             } else {

@@ -563,24 +563,53 @@ class DashboardCharts {
      */
     getChartStats() {
         const stats = {};
-        
         Object.entries(this.charts).forEach(([name, chart]) => {
             if (chart && chart.data) {
+                // Chart.js v4+ labels/datasets can be functions or arrays
+                let labels = chart.data.labels;
+                if (typeof labels === 'function') labels = labels();
+                if (!Array.isArray(labels)) labels = [];
+                let datasets = chart.data.datasets;
+                if (typeof datasets === 'function') datasets = datasets();
+                if (!Array.isArray(datasets)) datasets = [];
+                let totalDataPoints = 0;
+                datasets.forEach(ds => {
+                    let data = ds.data;
+                    if (typeof data === 'function') data = data();
+                    if (!Array.isArray(data)) data = [];
+                    totalDataPoints += data.length;
+                });
                 stats[name] = {
-                    labels: chart.data.labels ? chart.data.labels.length : 0,
-                    datasets: chart.data.datasets ? chart.data.datasets.length : 0,
-                    totalDataPoints: chart.data.datasets ? 
-                        chart.data.datasets.reduce((sum, dataset) => sum + (dataset.data ? dataset.data.length : 0), 0) : 0
+                    labels: labels.length,
+                    datasets: datasets.length,
+                    totalDataPoints
                 };
             }
         });
-        
         return stats;
     }
 }
 
 // Create global instance
 window.dashboardCharts = new DashboardCharts();
+
+// Fetch dashboard data and initialize charts
+async function fetchAndInitDashboardCharts() {
+    try {
+        const response = await fetch('/api/dashboard-charts');
+        const result = await response.json();
+        if (result.success && result.data) {
+            await window.dashboardCharts.initializeAll(result.data);
+        } else {
+            console.error('Failed to load dashboard chart data:', result.message);
+        }
+    } catch (err) {
+        console.error('Error fetching dashboard chart data:', err);
+    }
+}
+
+// On DOM ready, fetch and initialize charts
+document.addEventListener('DOMContentLoaded', fetchAndInitDashboardCharts);
 
 // Handle window resize
 window.addEventListener('resize', () => {

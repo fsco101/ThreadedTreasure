@@ -401,45 +401,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- Quick Stats -->
-        <div class="row">
-            <div class="col-12">
-                <div class="quick-stats">
-                    <h4><i class="fas fa-tachometer-alt me-2"></i>Quick Stats</h4>
-                    <div class="quick-stats-grid">
-                        <div class="quick-stat-item">
-                            <div class="icon text-success">
-                                <i class="fas fa-eye"></i>
-                            </div>
-                            <div class="value" id="pageViews">0</div>
-                            <div class="label">Page Views</div>
-                        </div>
-                        <div class="quick-stat-item">
-                            <div class="icon text-primary">
-                                <i class="fas fa-shopping-bag"></i>
-                            </div>
-                            <div class="value" id="pendingOrders">0</div>
-                            <div class="label">Pending Orders</div>
-                        </div>
-                        <div class="quick-stat-item">
-                            <div class="icon text-warning">
-                                <i class="fas fa-exclamation-triangle"></i>
-                            </div>
-                            <div class="value" id="lowStockProducts">0</div>
-                            <div class="label">Low Stock</div>
-                        </div>
-                        <div class="quick-stat-item">
-                            <div class="icon text-info">
-                                <i class="fas fa-star"></i>
-                            </div>
-                            <div class="value" id="averageRating">0.0</div>
-                            <div class="label">Avg Rating</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- Floating Action Buttons -->
@@ -471,543 +432,75 @@
     <script src="../js/componentLoader.js"></script>
     
     <script>
-        // Dashboard Data Storage
-        let dashboardData = {
-            revenue: 0,
-            orders: 0,
-            products: 0,
-            customers: 0,
-            salesData: [],
-            categoryData: [],
-            productRevenueData: []
-        };
-
-        // Chart instances
-        let salesChart, categoryChart, revenueChart;
-
-        // Initialize dashboard
+        // --- Dashboard Integration with dashboard-charts.js ---
         $(document).ready(function() {
-            console.log('🚀 Initializing Admin Dashboard...');
-            
             // Load reusable components
             loadComponent('admin-header-placeholder', '../components/admin-header.html');
-            
             // Check authentication
             if (!window.adminAuth || !window.adminAuth.checkAuth()) {
                 console.error('❌ Admin authentication required');
                 return;
             }
-            
-            console.log('🔐 Authentication verified');
-            
-            // Initialize dashboard
-            initializeDashboard();
-        });
-
-        async function initializeDashboard() {
-            try {
-                console.log('📊 Loading dashboard data...');
-                
-                // Show loading spinners
-                showLoadingSpinners();
-                
-                // Load data from API
-                await loadDashboardData();
-                
-                // Update stats cards
-                updateStatsCards();
-                
-                // Initialize charts
-                initializeCharts();
-                
-                // Hide loading spinners
-                hideLoadingSpinners();
-                
-                console.log('✅ Dashboard initialized successfully');
-                
-            } catch (error) {
-                console.error('❌ Dashboard initialization failed:', error);
-                hideLoadingSpinners();
-                
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Dashboard Error',
-                    text: 'Failed to load dashboard data. Please try refreshing the page.',
-                    confirmButtonText: 'Refresh',
-                    showCancelButton: true
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        window.location.reload();
+            // Fetch dashboard data and update stats and charts
+            fetch('/api/dashboard-charts')
+                .then(res => res.json())
+                .then(async result => {
+                    if (result.success && result.data) {
+                        const totalRevenue = result.data.productRevenueData.reduce((sum, p) => sum + (parseFloat(p.revenue) || 0), 0);
+                        const totalOrders = result.data.salesData.reduce((sum, s) => sum + (parseFloat(s.sales) || 0), 0);
+                        const totalProducts = result.data.productRevenueData.length;
+                        const totalCustomers = result.data.categoryData.reduce((sum, c) => sum + (parseInt(c.value) || 0), 0);
+                        animateNumber('#totalRevenue', 0, totalRevenue, 2000, '$', 2);
+                        animateNumber('#totalOrders', 0, totalOrders, 1500);
+                        animateNumber('#totalProducts', 0, totalProducts, 1200);
+                        animateNumber('#totalCustomers', 0, totalCustomers, 1800);
+                        // Optionally update change indicators (mocked for now)
+                        $('#revenueChange').text('+0%');
+                        $('#ordersChange').text('+0%');
+                        $('#productsChange').text('+0');
+                        $('#customersChange').text('+0');
+                        // Initialize charts using dashboardCharts.js
+                        if (window.dashboardCharts && typeof window.dashboardCharts.initializeAll === 'function') {
+                            await window.dashboardCharts.initializeAll(result.data);
+                        }
+                    } else {
+                        // Optionally show error or fallback
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Dashboard Error',
+                            text: 'Failed to load dashboard data.'
+                        });
                     }
+                })
+                .catch(() => {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Dashboard Error',
+                        text: 'Failed to load dashboard data.'
+                    });
                 });
-            }
-        }
-
-        function showLoadingSpinners() {
-            $('#salesChartLoading').show();
-            $('#categoryChartLoading').show();
-            $('#revenueChartLoading').show();
-        }
-
-        function hideLoadingSpinners() {
-            $('#salesChartLoading').hide();
-            $('#categoryChartLoading').hide();
-            $('#revenueChartLoading').hide();
-        }
-
-        async function loadDashboardData() {
-            try {
-                console.log('📡 Fetching dashboard data from API...');
-                
-                // Get authentication headers
-                const headers = {
-                    'Authorization': `Bearer ${window.adminAuth.getToken()}`,
-                    'Content-Type': 'application/json'
-                };
-
-                // Fetch all required data in parallel
-                const [
-                    productsResponse,
-                    categoriesResponse,
-                    usersResponse,
-                    ordersResponse
-                ] = await Promise.all([
-                    $.ajax({ url: '/api/products', headers }),
-                    $.ajax({ url: '/api/categories', headers }),
-                    $.ajax({ url: '/api/users', headers }),
-                    $.ajax({ url: '/api/orders/admin/all', headers }).catch(() => ({ success: true, data: [] }))
-                ]);
-
-                console.log('📊 API Responses:', {
-                    products: productsResponse,
-                    categories: categoriesResponse,
-                    users: usersResponse,
-                    orders: ordersResponse
-                });
-
-                // Process the data
-                processApiData(productsResponse, categoriesResponse, usersResponse, ordersResponse);
-                
-            } catch (error) {
-                console.error('❌ Failed to load dashboard data:', error);
-                
-                // Use mock data as fallback
-                console.log('🔄 Using mock data as fallback...');
-                loadMockData();
-            }
-        }
-
-        function processApiData(products, categories, users, orders) {
-            // Extract data with safety checks
-            const productsData = products.success ? products.data : [];
-            const categoriesData = categories.success ? categories.data : [];
-            const usersData = users.success ? users.data : [];
-            const ordersData = orders.success ? orders.data : [];
-            
-            console.log('📈 Processing data:', {
-                productsCount: productsData.length,
-                categoriesCount: categoriesData.length,
-                usersCount: usersData.length,
-                ordersCount: ordersData.length
-            });
-
-            // Update dashboard data
-            dashboardData.products = productsData.length;
-            dashboardData.customers = usersData.filter(u => u.role !== 'admin').length;
-            dashboardData.orders = ordersData.length;
-            
-            // Calculate revenue from orders
-            dashboardData.revenue = ordersData.reduce((sum, order) => {
-                return sum + (parseFloat(order.total_amount) || 0);
-            }, 0);
-
-            // Generate sales trend data (mock for now)
-            dashboardData.salesData = generateMonthlySalesData(ordersData);
-            
-            // Generate category distribution
-            dashboardData.categoryData = generateCategoryDistribution(categoriesData, productsData);
-            
-            // Generate product revenue data
-            dashboardData.productRevenueData = generateProductRevenueData(productsData);
-        }
-
-        function loadMockData() {
-            // Fallback mock data for testing
-            dashboardData = {
-                revenue: 125430.50,
-                orders: 1247,
-                products: 156,
-                customers: 892,
-                salesData: [
-                    { month: 'Jan', sales: 12000 },
-                    { month: 'Feb', sales: 15000 },
-                    { month: 'Mar', sales: 18000 },
-                    { month: 'Apr', sales: 22000 },
-                    { month: 'May', sales: 25000 },
-                    { month: 'Jun', sales: 28000 },
-                    { month: 'Jul', sales: 31000 },
-                    { month: 'Aug', sales: 29000 },
-                    { month: 'Sep', sales: 33000 },
-                    { month: 'Oct', sales: 36000 },
-                    { month: 'Nov', sales: 38000 },
-                    { month: 'Dec', sales: 42000 }
-                ],
-                categoryData: [
-                    { name: 'T-Shirts', value: 45, color: '#FF6384' },
-                    { name: 'Jeans', value: 25, color: '#36A2EB' },
-                    { name: 'Dresses', value: 15, color: '#FFCE56' },
-                    { name: 'Shoes', value: 10, color: '#4BC0C0' },
-                    { name: 'Accessories', value: 5, color: '#9966FF' }
-                ],
-                productRevenueData: [
-                    { name: 'Classic White T-Shirt', revenue: 15420 },
-                    { name: 'Blue Denim Jeans', revenue: 12380 },
-                    { name: 'Summer Dress', revenue: 9870 },
-                    { name: 'Running Shoes', revenue: 8750 },
-                    { name: 'Leather Jacket', revenue: 7630 },
-                    { name: 'Cotton Hoodie', revenue: 6540 },
-                    { name: 'Formal Shirt', revenue: 5430 },
-                    { name: 'Sneakers', revenue: 4320 },
-                    { name: 'Casual Pants', revenue: 3210 },
-                    { name: 'Baseball Cap', revenue: 2100 }
-                ]
-            };
-        }
-
-        function generateMonthlySalesData(ordersData) {
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            const currentMonth = new Date().getMonth();
-            
-            return months.map((month, index) => {
-                // Mock sales data based on orders (you can enhance this with real date filtering)
-                const baseSales = Math.max(5000, ordersData.length * 500 + Math.random() * 10000);
-                const seasonality = index <= currentMonth ? 1 : 0.7; // Current year vs next year
-                
-                return {
-                    month,
-                    sales: Math.round(baseSales * seasonality)
-                };
-            });
-        }
-
-        function generateCategoryDistribution(categoriesData, productsData) {
-            const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF'];
-            
-            return categoriesData.slice(0, 7).map((category, index) => {
-                // Count products in this category (mock implementation)
-                const productCount = Math.max(1, Math.floor(Math.random() * 20) + 5);
-                
-                return {
-                    name: category.name,
-                    value: productCount,
-                    color: colors[index % colors.length]
-                };
-            });
-        }
-
-        function generateProductRevenueData(productsData) {
-            return productsData.slice(0, 10).map(product => ({
-                name: product.name,
-                revenue: Math.round((parseFloat(product.price) || 50) * (Math.random() * 100 + 20))
-            })).sort((a, b) => b.revenue - a.revenue);
-        }
-
-        function updateStatsCards() {
-            // Update stats with animation
-            animateNumber('#totalRevenue', 0, dashboardData.revenue, 2000, '$', 2);
-            animateNumber('#totalOrders', 0, dashboardData.orders, 1500);
-            animateNumber('#totalProducts', 0, dashboardData.products, 1200);
-            animateNumber('#totalCustomers', 0, dashboardData.customers, 1800);
-            
-            // Update change indicators (mock data)
-            $('#revenueChange').text('+12.5%');
-            $('#ordersChange').text('+8.3%');
-            $('#productsChange').text(`+${Math.floor(Math.random() * 10) + 1}`);
-            $('#customersChange').text(`+${Math.floor(Math.random() * 20) + 5}`);
-            
-            // Update quick stats
-            $('#pageViews').text('24.7K');
-            $('#pendingOrders').text(Math.floor(dashboardData.orders * 0.15));
-            $('#lowStockProducts').text(Math.floor(dashboardData.products * 0.08));
-            $('#averageRating').text('4.8');
-        }
+        });
 
         function animateNumber(selector, start, end, duration, prefix = '', decimals = 0) {
             const element = $(selector);
             const range = end - start;
             const increment = range / (duration / 16);
             let current = start;
-            
             const timer = setInterval(() => {
                 current += increment;
-                if (current >= end) {
+                if ((increment > 0 && current >= end) || (increment < 0 && current <= end)) {
                     current = end;
                     clearInterval(timer);
                 }
-                
                 const value = decimals > 0 ? current.toFixed(decimals) : Math.round(current);
                 element.text(prefix + value.toLocaleString());
             }, 16);
         }
-
-        function initializeCharts() {
-            // Use the dashboard charts manager
-            if (window.dashboardCharts) {
-                window.dashboardCharts.initializeAll(dashboardData)
-                    .then(() => {
-                        console.log('✅ All charts initialized via charts manager');
-                    })
-                    .catch(error => {
-                        console.error('❌ Charts manager initialization failed:', error);
-                        // Fallback to individual chart initialization
-                        initializeSalesChart();
-                        initializeCategoryChart();
-                        initializeRevenueChart();
-                    });
-            } else {
-                console.warn('⚠️ Dashboard charts manager not available, using fallback');
-                initializeSalesChart();
-                initializeCategoryChart();
-                initializeRevenueChart();
-            }
-        }
-
-        function initializeSalesChart() {
-            const ctx = document.getElementById('salesChart').getContext('2d');
-            
-            salesChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: dashboardData.salesData.map(d => d.month),
-                    datasets: [{
-                        label: 'Monthly Sales ($)',
-                        data: dashboardData.salesData.map(d => d.sales),
-                        borderColor: '#667eea',
-                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                        borderWidth: 3,
-                        fill: true,
-                        tension: 0.4,
-                        pointBackgroundColor: '#667eea',
-                        pointBorderColor: '#fff',
-                        pointBorderWidth: 2,
-                        pointRadius: 6,
-                        pointHoverRadius: 8
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: true,
-                            position: 'top',
-                            labels: {
-                                usePointStyle: true,
-                                padding: 20
-                            }
-                        },
-                        tooltip: {
-                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                            titleColor: '#fff',
-                            bodyColor: '#fff',
-                            cornerRadius: 8,
-                            callbacks: {
-                                label: function(context) {
-                                    return 'Sales: $' + context.parsed.y.toLocaleString();
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                callback: function(value) {
-                                    return '$' + value.toLocaleString();
-                                }
-                            },
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.05)'
-                            }
-                        },
-                        x: {
-                            grid: {
-                                display: false
-                            }
-                        }
-                    },
-                    elements: {
-                        point: {
-                            hoverBackgroundColor: '#667eea'
-                        }
-                    }
-                }
-            });
-        }
-
-        function initializeCategoryChart() {
-            const ctx = document.getElementById('categoryChart').getContext('2d');
-            
-            categoryChart = new Chart(ctx, {
-                type: 'pie',
-                data: {
-                    labels: dashboardData.categoryData.map(d => d.name),
-                    datasets: [{
-                        data: dashboardData.categoryData.map(d => d.value),
-                        backgroundColor: dashboardData.categoryData.map(d => d.color),
-                        borderWidth: 2,
-                        borderColor: '#fff',
-                        hoverBorderWidth: 4,
-                        hoverBorderColor: '#fff'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                usePointStyle: true,
-                                padding: 20,
-                                generateLabels: function(chart) {
-                                    const data = chart.data;
-                                    const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
-                                    
-                                    return data.labels.map((label, index) => {
-                                        const value = data.datasets[0].data[index];
-                                        const percentage = ((value / total) * 100).toFixed(1);
                                         
-                                        return {
-                                            text: `${label} (${percentage}%)`,
-                                            fillStyle: data.datasets[0].backgroundColor[index],
-                                            pointStyle: 'circle'
-                                        };
-                                    });
-                                }
-                            }
-                        },
-                        tooltip: {
-                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                            titleColor: '#fff',
-                            bodyColor: '#fff',
-                            cornerRadius: 8,
-                            callbacks: {
-                                label: function(context) {
-                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                    const percentage = ((context.parsed / total) * 100).toFixed(1);
-                                    return `${context.label}: ${context.parsed} products (${percentage}%)`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        function initializeRevenueChart() {
-            const ctx = document.getElementById('revenueChart').getContext('2d');
-            
-            revenueChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: dashboardData.productRevenueData.map(d => d.name),
-                    datasets: [{
-                        label: 'Revenue ($)',
-                        data: dashboardData.productRevenueData.map(d => d.revenue),
-                        backgroundColor: 'rgba(255, 193, 7, 0.8)',
-                        borderColor: '#ffc107',
-                        borderWidth: 2,
-                        borderRadius: 8,
-                        borderSkipped: false,
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: true,
-                            position: 'top',
-                            labels: {
-                                usePointStyle: true,
-                                padding: 20
-                            }
-                        },
-                        tooltip: {
-                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                            titleColor: '#fff',
-                            bodyColor: '#fff',
-                            cornerRadius: 8,
-                            callbacks: {
-                                label: function(context) {
-                                    return 'Revenue: $' + context.parsed.y.toLocaleString();
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                callback: function(value) {
-                                    return '$' + value.toLocaleString();
-                                }
-                            },
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.05)'
-                            }
-                        },
-                        x: {
-                            ticks: {
-                                maxRotation: 45,
-                                minRotation: 45
-                            },
-                            grid: {
-                                display: false
-                            }
-                        }
-                    }
-                }
-            });
-        }
 
         // Dashboard Functions
-        async function refreshDashboard() {
-            console.log('🔄 Refreshing dashboard...');
-            
-            const refreshBtn = $('button[onclick="refreshDashboard()"]');
-            const originalText = refreshBtn.html();
-            
-            refreshBtn.html('<i class="fas fa-spinner fa-spin me-1"></i>Refreshing...').prop('disabled', true);
-            
-            try {
-                await initializeDashboard();
-                
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Dashboard Refreshed',
-                    text: 'All data has been updated successfully!',
-                    timer: 2000,
-                    showConfirmButton: false
-                });
-                
-            } catch (error) {
-                console.error('❌ Refresh failed:', error);
-                
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Refresh Failed',
-                    text: 'Failed to refresh dashboard data.'
-                });
-            } finally {
-                refreshBtn.html(originalText).prop('disabled', false);
-            }
-        }
-
         function exportDashboard() {
             console.log('📄 Exporting dashboard data...');
-            
             Swal.fire({
                 title: 'Export Dashboard Data',
                 text: 'What would you like to export?',
@@ -1035,42 +528,52 @@
         }
 
         function exportDataAsJSON() {
-            const dataToExport = {
-                exportDate: new Date().toISOString(),
-                stats: {
-                    revenue: dashboardData.revenue,
-                    orders: dashboardData.orders,
-                    products: dashboardData.products,
-                    customers: dashboardData.customers
-                },
-                salesData: dashboardData.salesData,
-                categoryData: dashboardData.categoryData,
-                productRevenueData: dashboardData.productRevenueData
-            };
-            
-            const dataStr = JSON.stringify(dataToExport, null, 2);
-            const dataBlob = new Blob([dataStr], {type: 'application/json'});
-            const url = URL.createObjectURL(dataBlob);
-            
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `dashboard-data-${new Date().toISOString().split('T')[0]}.json`;
-            link.click();
-            
-            URL.revokeObjectURL(url);
-            
-            Swal.fire({
-                icon: 'success',
-                title: 'Data Exported',
-                text: 'Dashboard data has been downloaded as JSON file.'
-            });
+            // Fetch the latest dashboard data from the API for export
+            fetch('/api/dashboard-charts')
+                .then(res => res.json())
+                .then(result => {
+                    if (result.success && result.data) {
+                        const dataToExport = {
+                            exportDate: new Date().toISOString(),
+                            stats: {
+                                revenue: result.data.productRevenueData.reduce((sum, p) => sum + (parseFloat(p.revenue) || 0), 0),
+                                orders: result.data.salesData.length,
+                                products: result.data.productRevenueData.length,
+                                customers: result.data.categoryData.reduce((sum, c) => sum + (parseInt(c.value) || 0), 0)
+                            },
+                            salesData: result.data.salesData,
+                            categoryData: result.data.categoryData,
+                            productRevenueData: result.data.productRevenueData
+                        };
+                        const dataStr = JSON.stringify(dataToExport, null, 2);
+                        const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                        const url = URL.createObjectURL(dataBlob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = `dashboard-data-${new Date().toISOString().split('T')[0]}.json`;
+                        link.click();
+                        URL.revokeObjectURL(url);
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Data Exported',
+                            text: 'Dashboard data has been downloaded as JSON file.'
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Export Failed',
+                            text: 'Could not fetch dashboard data for export.'
+                        });
+                    }
+                })
+                .catch(() => {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Export Failed',
+                        text: 'Could not fetch dashboard data for export.'
+                    });
+                });
         }
-
-        // Auto-refresh dashboard every 5 minutes
-        setInterval(() => {
-            console.log('🕐 Auto-refreshing dashboard...');
-            loadDashboardData().then(updateStatsCards);
-        }, 5 * 60 * 1000);
         
     </script>
 </body>
