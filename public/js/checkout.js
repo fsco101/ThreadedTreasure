@@ -6,7 +6,7 @@ class CheckoutManager {
         this.currentStep = 1;
         this.cart = [];
         this.selectedAddress = null;
-        this.paymentMethod = 'card';
+        this.paymentMethod = 'cod'; // Default to Cash on Delivery
         this.orderData = {};
         this.subtotal = 0;
         this.shipping = 0;
@@ -57,6 +57,64 @@ class CheckoutManager {
         this.loadSavedAddresses();
         this.setupEventListeners();
         this.updateOrderSummary();
+        this.initializeValidation();
+        
+        // Add debug info to console
+        console.log('Checkout initialized with user:', this.currentUser);
+        console.log('Cart key:', this.getCartKey());
+    }
+
+    initializeValidation() {
+        // Initialize jQuery validation for shipping form only
+        $('#shipping-form').validate({
+            rules: {
+                fullName: {
+                    required: true,
+                    minlength: 2
+                },
+                address1: {
+                    required: true,
+                    minlength: 5
+                },
+                phone: {
+                    required: true,
+                    phone: true,
+                    minlength: 10
+                }
+            },
+            messages: {
+                fullName: {
+                    required: "Please enter your full name",
+                    minlength: "Name must be at least 2 characters long"
+                },
+                address1: {
+                    required: "Please enter your address",
+                    minlength: "Address must be at least 5 characters long"
+                },
+                phone: {
+                    required: "Please enter your phone number",
+                    phone: "Please enter a valid phone number",
+                    minlength: "Phone number must be at least 10 digits"
+                }
+            },
+            errorElement: 'label',
+            errorClass: 'error',
+            validClass: 'valid',
+            errorPlacement: function(error, element) {
+                error.insertAfter(element);
+            },
+            highlight: function(element) {
+                $(element).addClass('error').removeClass('valid');
+            },
+            unhighlight: function(element) {
+                $(element).removeClass('error').addClass('valid');
+            }
+        });
+
+        // Add custom phone validation method
+        $.validator.addMethod("phone", function(value, element) {
+            return this.optional(element) || /^[\+]?[1-9][\d]{0,15}$/.test(value.replace(/[\s\(\)\-]/g, ''));
+        }, "Please enter a valid phone number");
     }
 
     checkGuestUser() {
@@ -96,7 +154,18 @@ class CheckoutManager {
     }
 
     setupEventListeners() {
-        // Payment method selection
+        // Payment method radio button selection
+        document.addEventListener('change', (e) => {
+            if (e.target.name === 'paymentMethod') {
+                this.paymentMethod = e.target.value;
+                console.log('Payment method changed to:', this.paymentMethod);
+            }
+            if (e.target.name === 'selectedAddress') {
+                this.selectedAddress = e.target.value;
+            }
+        });
+
+        // Legacy payment method selection (remove this if not needed)
         document.querySelectorAll('.payment-method').forEach(method => {
             method.addEventListener('click', () => {
                 document.querySelectorAll('.payment-method').forEach(m => m.classList.remove('selected'));
@@ -106,42 +175,7 @@ class CheckoutManager {
             });
         });
 
-        // Address selection
-        document.addEventListener('change', (e) => {
-            if (e.target.name === 'selectedAddress') {
-                this.selectedAddress = e.target.value;
-                this.updateAddressSelection();
-            }
-        });
-
-        // Card number formatting
-        const cardNumberInput = document.getElementById('cardNumber');
-        if (cardNumberInput) {
-            cardNumberInput.addEventListener('input', this.formatCardNumber);
-        }
-
-        // Expiry date formatting
-        const expiryInput = document.getElementById('expiryDate');
-        if (expiryInput) {
-            expiryInput.addEventListener('input', this.formatExpiryDate);
-        }
-
-        // CVV formatting
-        const cvvInput = document.getElementById('cvv');
-        if (cvvInput) {
-            cvvInput.addEventListener('input', this.formatCVV);
-        }
-
-        // Form validation
-        document.getElementById('shipping-form')?.addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.validateShippingForm();
-        });
-
-        document.getElementById('payment-form')?.addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.validatePaymentForm();
-        });
+        // Note: Removed card number, expiry, and CVV formatting since we no longer use credit cards
     }
 
     async loadCartItems() {
@@ -215,64 +249,80 @@ class CheckoutManager {
     }
 
     async loadSavedAddresses() {
+        // Simple address loading - just auto-fill form with user data
         try {
-            const token = localStorage.getItem('userToken');
-            if (!token) {
-                this.showNewAddressForm();
-                this.autoFillShippingFormFromUser();
-                return;
-            }
-
-            const response = await fetch(`${API_BASE_URL}/user/addresses`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (response.ok) {
-                const addresses = await response.json();
-                this.renderSavedAddresses(addresses);
-                // Auto-fill shipping form with first address if available
-                if (addresses.length > 0) {
-                    this.autoFillShippingForm(addresses[0]);
-                } else {
-                    this.autoFillShippingFormFromUser();
-                }
+            const user = this.currentUser;
+            if (user && user.name && user.address) {
+                // User has data, show it as saved address
+                const userAddress = {
+                    id: 'user_profile',
+                    name: user.name,
+                    address: user.address,
+                    phone: user.phone || ''
+                };
+                this.renderSavedAddresses([userAddress]);
+                this.selectedAddress = 'user_profile';
             } else {
+                // No user data, show new address form
                 this.showNewAddressForm();
-                this.autoFillShippingFormFromUser();
             }
         } catch (error) {
-            console.error('Error loading addresses:', error);
+            console.error('Error loading address:', error);
             this.showNewAddressForm();
-            this.autoFillShippingFormFromUser();
         }
     }
     autoFillShippingForm(address) {
-        // Fill shipping form fields with address object
+        // Fill shipping form fields with address object (users table format)
         if (!address) return;
-        document.getElementById('firstName') && (document.getElementById('firstName').value = address.first_name || '');
-        document.getElementById('lastName') && (document.getElementById('lastName').value = address.last_name || '');
-        document.getElementById('address1') && (document.getElementById('address1').value = address.address_line_1 || '');
-        document.getElementById('address2') && (document.getElementById('address2').value = address.address_line_2 || '');
-        document.getElementById('city') && (document.getElementById('city').value = address.city || '');
-        document.getElementById('state') && (document.getElementById('state').value = address.state || '');
-        document.getElementById('zipCode') && (document.getElementById('zipCode').value = address.postal_code || '');
-        document.getElementById('phone') && (document.getElementById('phone').value = address.phone || '');
+        
+        console.log('Auto-filling form with address:', address);
+        
+        const fullNameField = document.getElementById('fullName');
+        const address1Field = document.getElementById('address1');
+        const phoneField = document.getElementById('phone');
+        
+        if (fullNameField) fullNameField.value = address.name || '';
+        if (address1Field) address1Field.value = address.address || '';
+        if (phoneField) phoneField.value = address.phone || '';
+        
+        console.log('Form fields filled:', {
+            fullName: fullNameField?.value,
+            address1: address1Field?.value,
+            phone: phoneField?.value
+        });
     }
 
     autoFillShippingFormFromUser() {
-        // Fill shipping form fields with currentUser info if available
+        // Fill shipping form fields with currentUser info if available (users table format)
         const user = this.currentUser;
-        if (!user || user.isGuest) return;
-        document.getElementById('firstName') && (document.getElementById('firstName').value = user.first_name || '');
-        document.getElementById('lastName') && (document.getElementById('lastName').value = user.last_name || '');
-        document.getElementById('address1') && (document.getElementById('address1').value = user.address_line_1 || user.address1 || '');
-        document.getElementById('address2') && (document.getElementById('address2').value = user.address_line_2 || user.address2 || '');
-        document.getElementById('city') && (document.getElementById('city').value = user.city || '');
-        document.getElementById('state') && (document.getElementById('state').value = user.state || '');
-        document.getElementById('zipCode') && (document.getElementById('zipCode').value = user.postal_code || user.zipCode || '');
-        document.getElementById('phone') && (document.getElementById('phone').value = user.phone || '');
+        if (!user || user.isGuest) {
+            console.log('No user data available for auto-fill');
+            return;
+        }
+        
+        console.log('Auto-filling form from user data:', user);
+        
+        const fullNameField = document.getElementById('fullName');
+        const address1Field = document.getElementById('address1');
+        const phoneField = document.getElementById('phone');
+        
+        // Use full name directly
+        const fullName = user.name || '';
+        if (fullNameField) fullNameField.value = fullName;
+        
+        // Use address field directly
+        const fullAddress = user.address || '';
+        if (address1Field) address1Field.value = fullAddress;
+        
+        // Use phone directly
+        const phone = user.phone || '';
+        if (phoneField) phoneField.value = phone;
+        
+        console.log('Form auto-filled with:', {
+            fullName: fullName,
+            address: fullAddress,
+            phone: phone
+        });
     }
 
     renderSavedAddresses(addresses) {
@@ -285,15 +335,12 @@ class CheckoutManager {
         }
 
         container.innerHTML = addresses.map((address, index) => `
-            <div class="address-option ${index === 0 ? 'selected' : ''}" onclick="selectAddress(${address.id})">
+            <div class="address-option ${index === 0 ? 'selected' : ''}" onclick="selectAddress('${address.id}')">
                 <input type="radio" name="selectedAddress" value="${address.id}" ${index === 0 ? 'checked' : ''}>
                 <div>
-                    <strong>${address.first_name} ${address.last_name}</strong>
-                    ${address.company ? `<br>${address.company}` : ''}
-                    <br>${address.address_line_1}
-                    ${address.address_line_2 ? `<br>${address.address_line_2}` : ''}
-                    <br>${address.city}, ${address.state} ${address.postal_code}
-                    <br>${address.phone}
+                    <strong>${address.name}</strong>
+                    <br>${address.address || 'No address provided'}
+                    <br>${address.phone || 'No phone provided'}
                 </div>
             </div>
         `).join('');
@@ -304,108 +351,102 @@ class CheckoutManager {
     }
 
     showNewAddressForm() {
-        document.getElementById('new-address-form').style.display = 'block';
-        document.querySelector('.new-address-btn').textContent = 'Cancel';
-        document.querySelector('.new-address-btn').onclick = this.hideNewAddressForm;
+        const form = document.getElementById('new-address-form');
+        const btn = document.querySelector('.new-address-btn');
+        
+        if (form) {
+            form.style.display = 'block';
+            // Auto-fill with user data
+            this.autoFillForm();
+        }
+        
+        if (btn) {
+            btn.textContent = 'Cancel';
+            btn.onclick = () => this.hideNewAddressForm();
+        }
     }
 
     hideNewAddressForm() {
-        document.getElementById('new-address-form').style.display = 'none';
-        document.querySelector('.new-address-btn').textContent = '+ Add New Address';
-        document.querySelector('.new-address-btn').onclick = this.showNewAddressForm;
+        const form = document.getElementById('new-address-form');
+        const btn = document.querySelector('.new-address-btn');
+        
+        if (form) form.style.display = 'none';
+        
+        if (btn) {
+            btn.innerHTML = '<i class="fas fa-plus"></i> Add New Address';
+            btn.onclick = () => this.showNewAddressForm();
+        }
+    }
+
+    autoFillForm() {
+        const user = this.currentUser;
+        if (!user) return;
+        
+        const fullNameField = document.getElementById('fullName');
+        const address1Field = document.getElementById('address1');
+        const phoneField = document.getElementById('phone');
+        
+        if (fullNameField && user.name) fullNameField.value = user.name;
+        if (address1Field && user.address) address1Field.value = user.address;
+        if (phoneField && user.phone) phoneField.value = user.phone;
     }
 
     togglePaymentDetails() {
-        const cardDetails = document.getElementById('card-details');
-        if (this.paymentMethod === 'card') {
-            cardDetails.style.display = 'block';
-        } else {
-            cardDetails.style.display = 'none';
-        }
-    }
-
-    formatCardNumber(e) {
-        let value = e.target.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-        const matches = value.match(/\d{4,16}/g);
-        const match = matches && matches[0] || '';
-        const parts = [];
-
-        for (let i = 0, len = match.length; i < len; i += 4) {
-            parts.push(match.substring(i, i + 4));
-        }
-
-        if (parts.length) {
-            e.target.value = parts.join(' ');
-        } else {
-            e.target.value = value;
-        }
-    }
-
-    formatExpiryDate(e) {
-        let value = e.target.value.replace(/\D/g, '');
-        if (value.length >= 2) {
-            value = value.substring(0, 2) + '/' + value.substring(2, 4);
-        }
-        e.target.value = value;
-    }
-
-    formatCVV(e) {
-        e.target.value = e.target.value.replace(/\D/g, '').substring(0, 4);
+        // No longer needed since we don't have card details form
+        // Keep method for compatibility but it does nothing
+        console.log('Payment method selected:', this.paymentMethod);
     }
 
     validateShippingForm() {
-        const form = document.getElementById('shipping-form');
-        const formData = new FormData(form);
-        const errors = [];
-
-        // Basic validation
-        if (!formData.get('firstName')) errors.push('First name is required');
-        if (!formData.get('lastName')) errors.push('Last name is required');
-        if (!formData.get('address1')) errors.push('Address is required');
-        if (!formData.get('city')) errors.push('City is required');
-        if (!formData.get('state')) errors.push('State is required');
-        if (!formData.get('zipCode')) errors.push('ZIP code is required');
-        if (!formData.get('phone')) errors.push('Phone number is required');
-
-        if (errors.length > 0) {
-            this.showError(errors.join(', '));
+        // Use jQuery validation
+        const form = $('#shipping-form');
+        if (form.length === 0) {
+            // No form visible, validate selected address instead
+            if (!this.selectedAddress) {
+                this.showError('Please select a shipping address.');
+                return false;
+            }
+            return true;
+        }
+        
+        // Validate form using jQuery validation
+        const isValid = form.valid();
+        
+        if (!isValid) {
+            this.showError('Please correct the errors in the shipping form.');
             return false;
         }
-
+        
         return true;
     }
 
     validatePaymentForm() {
-        if (this.paymentMethod !== 'card') return true;
-
-        const form = document.getElementById('payment-form');
-        const formData = new FormData(form);
-        const errors = [];
-
-        if (!formData.get('cardNumber')) errors.push('Card number is required');
-        if (!formData.get('expiryDate')) errors.push('Expiry date is required');
-        if (!formData.get('cvv')) errors.push('CVV is required');
-        if (!formData.get('cardName')) errors.push('Name on card is required');
-
-        // Additional validation for card number
-        const cardNumber = formData.get('cardNumber').replace(/\s/g, '');
-        if (cardNumber.length < 13 || cardNumber.length > 19) {
-            errors.push('Invalid card number');
-        }
-
-        if (errors.length > 0) {
-            this.showError(errors.join(', '));
+        // Simple validation - just check if a payment method is selected
+        const selectedPayment = document.querySelector('input[name="paymentMethod"]:checked');
+        
+        if (!selectedPayment) {
+            this.showError('Please select a payment method.');
             return false;
         }
-
+        
+        // Update our payment method based on selection
+        this.paymentMethod = selectedPayment.value;
+        console.log('Payment method validated:', this.paymentMethod);
         return true;
     }
 
     nextStep() {
+        // Validate current step using jQuery validation
         if (this.currentStep === 1) {
-            if (!this.selectedAddress && !this.validateShippingForm()) return;
+            // Shipping step validation
+            if (!this.validateShippingForm()) {
+                return;
+            }
         } else if (this.currentStep === 2) {
-            if (!this.validatePaymentForm()) return;
+            // Payment step validation
+            if (!this.validatePaymentForm()) {
+                return;
+            }
         }
 
         this.currentStep++;
@@ -476,103 +517,127 @@ class CheckoutManager {
     }
 
     getShippingInfo() {
-        // Get shipping information from form inputs
-        const firstName = document.getElementById('firstName')?.value || 'John';
-        const lastName = document.getElementById('lastName')?.value || 'Doe';
-        const address1 = document.getElementById('address1')?.value || '123 Main St';
-        const address2 = document.getElementById('address2')?.value || '';
-        const city = document.getElementById('city')?.value || 'Anytown';
-        const state = document.getElementById('state')?.value || 'CA';
-        const zipCode = document.getElementById('zipCode')?.value || '12345';
-        const phone = document.getElementById('phone')?.value || '(555) 123-4567';
+        // Simple shipping info - get from form or user profile
+        const user = this.currentUser;
+        
+        // Try form fields first
+        const fullNameField = document.getElementById('fullName');
+        const address1Field = document.getElementById('address1');
+        const address2Field = document.getElementById('address2');
+        const phoneField = document.getElementById('phone');
+        
+        const fullName = fullNameField?.value || user?.name || '';
+        const address1 = address1Field?.value || user?.address || '';
+        const address2 = address2Field?.value || '';
+        const phone = phoneField?.value || user?.phone || '';
         
         return {
-            firstName: firstName,
-            lastName: lastName,
-            name: `${firstName} ${lastName}`,
+            name: fullName,
+            fullName: fullName,
             address1: address1,
-            address_line_1: address1,
             address2: address2,
-            address_line_2: address2,
-            city: city,
-            state: state,
-            zipCode: zipCode,
-            postal_code: zipCode,
-            country: 'United States',
             phone: phone,
-            // For display
-            address: `${address1}${address2 ? ', ' + address2 : ''}, ${city}, ${state} ${zipCode}`
+            address: `${address1}${address2 ? ', ' + address2 : ''}`
         };
     }
 
     getPaymentInfo() {
-        const paymentMethod = this.paymentMethod || 'card';
+        const paymentMethod = this.paymentMethod || 'cod';
         
         switch (paymentMethod) {
-            case 'card':
+            case 'cod':
                 return {
-                    method: 'card',
-                    type: 'Credit Card',
-                    details: '**** **** **** 1234'
+                    method: 'cod',
+                    type: 'Cash on Delivery',
+                    details: 'Payment upon delivery'
                 };
-            case 'paypal':
+            case 'bank-transfer':
                 return {
-                    method: 'paypal',
-                    type: 'PayPal',
-                    details: 'user@example.com'
+                    method: 'bank-transfer',
+                    type: 'Bank Transfer',
+                    details: 'ThreadedTreasure Bank - Account: 1234-5678-9012-3456'
                 };
-            case 'apple-pay':
+            case 'gcash':
                 return {
-                    method: 'apple-pay',
-                    type: 'Apple Pay',
-                    details: 'Touch ID or Face ID'
+                    method: 'gcash',
+                    type: 'GCash',
+                    details: 'GCash Number: +63 912 345 6789'
                 };
             default:
                 return {
-                    method: 'card',
-                    type: 'Credit Card',
-                    details: 'Payment method'
+                    method: 'cod',
+                    type: 'Cash on Delivery',
+                    details: 'Payment upon delivery'
                 };
         }
     }
 
     async placeOrder() {
-        const button = document.querySelector('.place-order-btn');
+        // Try multiple button selectors to handle different button classes
+        const button = document.querySelector('.place-order-btn') || 
+                      document.querySelector('.btn-success[onclick="placeOrder()"]') ||
+                      document.querySelector('button[onclick="placeOrder()"]');
+        
+        if (!button) {
+            console.error('Place order button not found');
+            this.showError('Unable to find order button. Please refresh the page.');
+            return;
+        }
+
         const spinner = button.querySelector('.loading-spinner');
-        // Block guest users from placing orders
-        const cartKey = this.getCartKey();
-        if (!cartKey) {
+        
+        // Basic validation
+        if (!this.currentUser || this.currentUser.isGuest) {
             this.showError('You must be logged in to place an order.');
-            this.redirectToLogin();
             return;
         }
-        // Validate cart is not empty
+        
         if (!this.cart || this.cart.length === 0) {
-            this.showError('Your cart is empty. Please add items before placing an order.');
+            this.showError('Your cart is empty.');
             return;
         }
-        // Validate required shipping information
+        
+        // Validate shipping information
+        const shippingValid = this.validateShippingForm();
+        if (!shippingValid) {
+            this.showError('Please provide valid shipping information.');
+            return;
+        }
+        
+        // Validate payment method selection
+        const paymentValid = this.validatePaymentForm();
+        if (!paymentValid) {
+            this.showError('Please select a payment method.');
+            return;
+        }
+        
         const shippingInfo = this.getShippingInfo();
-        if (!shippingInfo.firstName || !shippingInfo.lastName || !shippingInfo.address1 || 
-            !shippingInfo.city || !shippingInfo.state || !shippingInfo.zipCode) {
-            this.showError('Please fill in all required shipping information fields.');
+        if (!shippingInfo.name || !shippingInfo.address1) {
+            this.showError('Please provide complete shipping information.');
             return;
         }
+        
         // Show loading state
         button.disabled = true;
-        spinner.style.display = 'inline-block';
+        if (spinner) {
+            spinner.style.display = 'inline-block';
+        }
+        
         try {
             const orderData = {
+                userId: this.currentUser.id,
                 items: this.cart,
-                shippingAddress: this.getShippingInfo(),
+                shippingAddress: shippingInfo,
                 paymentMethod: this.paymentMethod,
-                paymentDetails: this.getPaymentInfo(),
                 subtotal: this.subtotal,
                 shipping: this.shipping,
                 tax: this.tax,
-                total: this.total
+                total: this.total,
+                orderDate: new Date().toISOString()
             };
+            
             console.log('Placing order with data:', orderData);
+            
             const response = await fetch(`${API_BASE_URL}/orders`, {
                 method: 'POST',
                 headers: {
@@ -581,311 +646,232 @@ class CheckoutManager {
                 },
                 body: JSON.stringify(orderData)
             });
-            const result = await response.json();
-            console.log('Order API response:', result);
-            if (response.ok && result.success) {
-                this.orderData = result.order;
+            
+            const responseText = await response.text();
+            console.log('Order response:', response.status, responseText);
+            
+            if (response.ok) {
+                let result;
+                try {
+                    result = JSON.parse(responseText);
+                } catch (e) {
+                    console.warn('Response is not JSON, treating as success');
+                    result = { success: true };
+                }
+                
+                this.orderData = result.order || { 
+                    orderNumber: 'TT' + Date.now(),
+                    paymentMethod: this.paymentMethod,
+                    total: this.total
+                };
+                
+                console.log('Order placed successfully:', this.orderData);
+                
+                // Move to completion step
                 this.currentStep = 4;
                 this.updateStepDisplay();
                 this.updateProgress();
                 this.showOrderConfirmation();
-                // Clear cart using user-specific key
-                localStorage.removeItem(cartKey);
-                console.log('Order placed successfully:', result.order);
+                
+                // Clear cart after successful order
+                const cartKey = this.getCartKey();
+                if (cartKey) {
+                    localStorage.removeItem(cartKey);
+                    console.log('Cart cleared');
+                }
+                
             } else {
-                const errorMessage = result.message || `Failed to place order (Status: ${response.status})`;
-                console.error('Order API error:', errorMessage, result);
+                console.error('Order failed:', response.status, responseText);
+                let errorMessage = 'Failed to place order. Please try again.';
+                
+                try {
+                    const errorData = JSON.parse(responseText);
+                    if (errorData.message) {
+                        errorMessage = errorData.message;
+                    }
+                } catch (e) {
+                    // Use default error message
+                }
+                
                 this.showError(errorMessage);
             }
         } catch (error) {
-            console.error('Error placing order:', error);
-            let errorMessage = 'Failed to place order. Please try again.';
+            console.error('Order error:', error);
+            
+            // Check if it's a network error
             if (error.name === 'TypeError' && error.message.includes('fetch')) {
-                errorMessage = 'Unable to connect to server. Please check your internet connection.';
+                this.showError('Unable to connect to server. Please check your internet connection and try again.');
+            } else if (error.message.includes('Failed to fetch')) {
+                // Handle case when API server is not running
+                console.warn('API server not available, simulating order placement');
+                this.simulateOrderPlacement();
+                return;
+            } else {
+                this.showError('An unexpected error occurred. Please try again.');
             }
-            this.showError(errorMessage);
         } finally {
+            // Always re-enable button and hide spinner
             button.disabled = false;
-            spinner.style.display = 'none';
+            if (spinner) {
+                spinner.style.display = 'none';
+            }
         }
+    }
+
+    simulateOrderPlacement() {
+        console.log('Simulating order placement (API server not available)');
+        
+        // Create a simulated order
+        this.orderData = {
+            orderNumber: 'TT' + Date.now(),
+            paymentMethod: this.paymentMethod,
+            total: this.total,
+            status: 'pending',
+            simulated: true
+        };
+        
+        console.log('Simulated order created:', this.orderData);
+        
+        // Move to completion step
+        this.currentStep = 4;
+        this.updateStepDisplay();
+        this.updateProgress();
+        this.showOrderConfirmation();
+        
+        // Clear cart
+        const cartKey = this.getCartKey();
+        if (cartKey) {
+            localStorage.removeItem(cartKey);
+            console.log('Cart cleared (simulated mode)');
+        }
+        
+        // Show a notice that this is simulated
+        setTimeout(() => {
+            const notice = document.createElement('div');
+            notice.className = 'alert alert-info';
+            notice.innerHTML = `
+                <i class="fas fa-info-circle"></i> 
+                <strong>Demo Mode:</strong> This order was placed in demo mode. 
+                No real transaction occurred.
+            `;
+            notice.style.marginTop = '15px';
+            document.getElementById('order-confirmation').appendChild(notice);
+        }, 1000);
     }
 
     showOrderConfirmation() {
         const orderNumber = this.orderData.orderNumber || 'TT' + Date.now();
-        const customerName = this.orderData.customer || 'Valued Customer';
-        const emailSent = this.orderData.emailSent ? '✓' : '✗';
-        
-        // Get shipping info
         const shippingInfo = this.getShippingInfo();
+        const paymentInfo = this.getPaymentInfo();
         
-        // Format items for display
         const itemsHTML = this.cart.map(item => `
-            <div class="receipt-item">
-                <div class="item-details">
-                    <div class="item-name">${item.name}</div>
-                    ${item.size || item.color ? `<div class="item-options">
-                        ${item.size ? `Size: ${item.size}` : ''}
-                        ${item.size && item.color ? ', ' : ''}
-                        ${item.color ? `Color: ${item.color}` : ''}
-                    </div>` : ''}
-                </div>
-                <div class="item-quantity">Qty: ${item.quantity}</div>
-                <div class="item-price">$${(item.price * item.quantity).toFixed(2)}</div>
+            <div style="border-bottom: 1px solid #eee; padding: 10px 0;">
+                <strong>${item.name}</strong> - Qty: ${item.quantity} - $${(item.price * item.quantity).toFixed(2)}
+                <br><small style="color: #666;">Size: ${item.size} | Color: ${item.color}</small>
             </div>
         `).join('');
-
+        
         document.getElementById('order-confirmation').innerHTML = `
-            <div class="receipt-container">
-                <div class="receipt-header">
-                    <h4>Order Receipt</h4>
-                    <div class="receipt-details">
-                        <div><strong>Order #:</strong> ${orderNumber}</div>
-                        <div><strong>Date:</strong> ${new Date().toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                        })}</div>
-                        <div><strong>Customer:</strong> ${customerName}</div>
-                        <div><strong>Email Receipt:</strong> <span class="email-status ${emailSent === '✓' ? 'sent' : 'failed'}">${emailSent} ${emailSent === '✓' ? 'Sent' : 'Failed'}</span></div>
+            <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <i class="fas fa-check-circle" style="font-size: 3rem; color: #28a745; margin-bottom: 10px;"></i>
+                    <h4 style="color: #28a745; margin: 0;">Order Placed Successfully!</h4>
+                </div>
+                
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+                    <h5 style="margin: 0 0 10px 0; color: #333;">Order #${orderNumber}</h5>
+                    <p style="margin: 0;"><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+                    <p style="margin: 5px 0 0 0;"><strong>Payment Method:</strong> ${paymentInfo.type}</p>
+                </div>
+                
+                <h5 style="color: #333; border-bottom: 2px solid #667eea; padding-bottom: 5px;">Shipping To:</h5>
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+                    <strong>${shippingInfo.name}</strong><br>
+                    ${shippingInfo.address}<br>
+                    Phone: ${shippingInfo.phone}
+                </div>
+                
+                <h5 style="color: #333; border-bottom: 2px solid #667eea; padding-bottom: 5px;">Items Ordered:</h5>
+                <div style="margin-bottom: 20px;">
+                    ${itemsHTML}
+                </div>
+                
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 6px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                        <span>Subtotal:</span>
+                        <span>$${this.subtotal.toFixed(2)}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                        <span>Shipping:</span>
+                        <span>$${this.shipping.toFixed(2)}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <span>Tax:</span>
+                        <span>$${this.tax.toFixed(2)}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; border-top: 2px solid #667eea; padding-top: 10px; font-size: 1.2rem; font-weight: bold;">
+                        <span>Total:</span>
+                        <span style="color: #667eea;">$${this.total.toFixed(2)}</span>
                     </div>
                 </div>
-
-                <div class="receipt-section">
-                    <h5>Items Ordered</h5>
-                    <div class="receipt-items">
-                        ${itemsHTML}
-                    </div>
-                </div>
-
-                <div class="receipt-section">
-                    <h5>Shipping Address</h5>
-                    <div class="address-info">
-                        <div><strong>${shippingInfo.firstName} ${shippingInfo.lastName}</strong></div>
-                        <div>${shippingInfo.address1}</div>
-                        ${shippingInfo.address2 ? `<div>${shippingInfo.address2}</div>` : ''}
-                        <div>${shippingInfo.city}, ${shippingInfo.state} ${shippingInfo.zipCode}</div>
-                        ${shippingInfo.phone ? `<div>Phone: ${shippingInfo.phone}</div>` : ''}
-                    </div>
-                </div>
-
-                <div class="receipt-section">
-                    <h5>Payment Method</h5>
-                    <div class="payment-info">
-                        <div><strong>${this.paymentMethod.method || 'Credit Card'}</strong></div>
-                        ${this.paymentMethod.last4 ? `<div>**** **** **** ${this.paymentMethod.last4}</div>` : ''}
-                    </div>
-                </div>
-
-                <div class="receipt-section">
-                    <h5>Order Summary</h5>
-                    <div class="receipt-totals">
-                        <div class="total-row">
-                            <span>Subtotal:</span>
-                            <span>$${this.subtotal.toFixed(2)}</span>
-                        </div>
-                        <div class="total-row">
-                            <span>Shipping:</span>
-                            <span>$${this.shipping.toFixed(2)}</span>
-                        </div>
-                        ${this.tax > 0 ? `
-                            <div class="total-row">
-                                <span>Tax:</span>
-                                <span>$${this.tax.toFixed(2)}</span>
-                            </div>
-                        ` : ''}
-                        ${this.discount > 0 ? `
-                            <div class="total-row">
-                                <span>Discount:</span>
-                                <span>-$${this.discount.toFixed(2)}</span>
-                            </div>
-                        ` : ''}
-                        <div class="total-row final-total">
-                            <span><strong>Total:</strong></span>
-                            <span><strong>$${this.total.toFixed(2)}</strong></span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="receipt-section">
-                    <h5>Delivery Information</h5>
-                    <div class="delivery-info">
-                        <div><strong>Estimated Delivery:</strong> 3-5 business days</div>
-                        <div>We'll send tracking information to your email once your order ships.</div>
-                    </div>
-                </div>
-
-                <div class="receipt-actions">
-                    <button type="button" class="btn btn-outline-primary" onclick="window.print()">
-                        <i class="fas fa-print"></i> Print Receipt
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary" onclick="checkout.downloadReceipt('${orderNumber}')">
-                        <i class="fas fa-download"></i> Download Receipt
-                    </button>
-                </div>
+                
+                ${this.getPaymentInstructions()}
             </div>
-
-            <style>
-                .receipt-container {
-                    background: white;
-                    border: 1px solid #ddd;
-                    border-radius: 8px;
-                    padding: 2rem;
-                    margin: 1rem 0;
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                }
-
-                .receipt-header {
-                    border-bottom: 2px solid #667eea;
-                    padding-bottom: 1rem;
-                    margin-bottom: 1.5rem;
-                    text-align: center;
-                }
-
-                .receipt-header h4 {
-                    color: #667eea;
-                    margin-bottom: 1rem;
-                }
-
-                .receipt-details {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 0.5rem;
-                    text-align: left;
-                    max-width: 400px;
-                    margin: 0 auto;
-                }
-
-                .email-status.sent {
-                    color: #28a745;
-                }
-
-                .email-status.failed {
-                    color: #dc3545;
-                }
-
-                .receipt-section {
-                    margin-bottom: 1.5rem;
-                    padding-bottom: 1rem;
-                    border-bottom: 1px solid #eee;
-                }
-
-                .receipt-section:last-of-type {
-                    border-bottom: none;
-                }
-
-                .receipt-section h5 {
-                    color: #333;
-                    margin-bottom: 1rem;
-                    font-weight: 600;
-                }
-
-                .receipt-item {
-                    display: grid;
-                    grid-template-columns: 1fr auto auto;
-                    gap: 1rem;
-                    align-items: center;
-                    padding: 0.75rem 0;
-                    border-bottom: 1px solid #f0f0f0;
-                }
-
-                .receipt-item:last-child {
-                    border-bottom: none;
-                }
-
-                .item-name {
-                    font-weight: 500;
-                    color: #333;
-                }
-
-                .item-options {
-                    font-size: 0.9rem;
-                    color: #666;
-                    margin-top: 0.25rem;
-                }
-
-                .item-quantity {
-                    color: #666;
-                    font-size: 0.9rem;
-                }
-
-                .item-price {
-                    font-weight: 600;
-                    color: #667eea;
-                }
-
-                .address-info, .payment-info, .delivery-info {
-                    background: #f8f9fa;
-                    padding: 1rem;
-                    border-radius: 6px;
-                    border-left: 4px solid #667eea;
-                }
-
-                .receipt-totals {
-                    background: #f8f9fa;
-                    padding: 1rem;
-                    border-radius: 6px;
-                }
-
-                .total-row {
-                    display: flex;
-                    justify-content: space-between;
-                    margin-bottom: 0.5rem;
-                }
-
-                .total-row:last-child {
-                    margin-bottom: 0;
-                }
-
-                .final-total {
-                    border-top: 2px solid #ddd;
-                    padding-top: 0.5rem;
-                    margin-top: 0.5rem;
-                    font-size: 1.1rem;
-                    color: #333;
-                }
-
-                .receipt-actions {
-                    display: flex;
-                    gap: 1rem;
-                    justify-content: center;
-                    margin-top: 2rem;
-                    padding-top: 1rem;
-                    border-top: 2px solid #f0f0f0;
-                }
-
-                .receipt-actions .btn {
-                    padding: 0.75rem 1.5rem;
-                    border-radius: 6px;
-                    font-weight: 500;
-                    transition: all 0.3s ease;
-                }
-
-                @media print {
-                    .receipt-actions {
-                        display: none;
-                    }
-                }
-
-                @media (max-width: 768px) {
-                    .receipt-details {
-                        grid-template-columns: 1fr;
-                        text-align: center;
-                    }
-                    
-                    .receipt-item {
-                        grid-template-columns: 1fr;
-                        text-align: center;
-                        gap: 0.5rem;
-                    }
-
-                    .receipt-actions {
-                        flex-direction: column;
-                    }
-                }
-            </style>
         `;
+    }
+
+    getPaymentInstructions() {
+        const paymentMethod = this.paymentMethod || 'cod';
+        
+        switch (paymentMethod) {
+            case 'cod':
+                return `
+                    <div style="background: #e7f3ff; border: 1px solid #b3d9ff; border-radius: 6px; padding: 15px; margin-top: 20px;">
+                        <h6 style="color: #0066cc; margin-bottom: 10px;"><i class="fas fa-info-circle"></i> Payment Instructions</h6>
+                        <p style="margin: 0; color: #333;">
+                            <strong>Cash on Delivery:</strong> Please prepare the exact amount of <strong>$${this.total.toFixed(2)}</strong> 
+                            for payment upon delivery. A valid ID may be required.
+                        </p>
+                    </div>
+                `;
+            case 'bank-transfer':
+                return `
+                    <div style="background: #e7f3ff; border: 1px solid #b3d9ff; border-radius: 6px; padding: 15px; margin-top: 20px;">
+                        <h6 style="color: #0066cc; margin-bottom: 10px;"><i class="fas fa-info-circle"></i> Payment Instructions</h6>
+                        <p style="margin-bottom: 10px; color: #333;">
+                            <strong>Bank Transfer:</strong> Please transfer <strong>$${this.total.toFixed(2)}</strong> to:
+                        </p>
+                        <div style="background: white; padding: 10px; border-radius: 4px;">
+                            <strong>Bank:</strong> ThreadedTreasure Bank<br>
+                            <strong>Account Name:</strong> ThreadedTreasure Store<br>
+                            <strong>Account Number:</strong> 1234-5678-9012-3456<br>
+                            <strong>Reference:</strong> ${this.orderData.orderNumber}
+                        </div>
+                        <p style="margin: 10px 0 0 0; font-size: 0.9rem; color: #666;">
+                            Please send proof of payment to orders@threadedtreasure.com
+                        </p>
+                    </div>
+                `;
+            case 'gcash':
+                return `
+                    <div style="background: #e7f3ff; border: 1px solid #b3d9ff; border-radius: 6px; padding: 15px; margin-top: 20px;">
+                        <h6 style="color: #0066cc; margin-bottom: 10px;"><i class="fas fa-info-circle"></i> Payment Instructions</h6>
+                        <p style="margin-bottom: 10px; color: #333;">
+                            <strong>GCash Payment:</strong> Please send <strong>$${this.total.toFixed(2)}</strong> to:
+                        </p>
+                        <div style="background: white; padding: 10px; border-radius: 4px;">
+                            <strong>GCash Number:</strong> +63 912 345 6789<br>
+                            <strong>Account Name:</strong> ThreadedTreasure Store<br>
+                            <strong>Reference:</strong> ${this.orderData.orderNumber}
+                        </div>
+                        <p style="margin: 10px 0 0 0; font-size: 0.9rem; color: #666;">
+                            Please send screenshot of payment confirmation to orders@threadedtreasure.com
+                        </p>
+                    </div>
+                `;
+            default:
+                return '';
+        }
     }
 
     showError(message) {
@@ -1079,20 +1065,58 @@ function placeOrder() {
     checkout.placeOrder();
 }
 
-// Initialize checkout when DOM is loaded
+function triggerAutoFill() {
+    if (checkout) {
+        console.log('Manually triggering auto-fill...');
+        checkout.autoFillShippingFormFromUser();
+    }
+}
+
+function debugCheckout() {
+    if (checkout) {
+        console.log('=== Checkout Debug Info ===');
+        console.log('Current user:', checkout.currentUser);
+        console.log('Selected address:', checkout.selectedAddress);
+        console.log('Cart items:', checkout.cart);
+        console.log('Current step:', checkout.currentStep);
+        console.log('Totals:', {
+            subtotal: checkout.subtotal,
+            shipping: checkout.shipping,
+            tax: checkout.tax,
+            total: checkout.total
+        });
+        
+        // Check form visibility
+        const form = document.getElementById('new-address-form');
+        console.log('New address form visible:', form ? form.style.display !== 'none' : 'form not found');
+        
+        // Check saved addresses
+        const savedAddresses = document.getElementById('saved-addresses');
+        console.log('Saved addresses content:', savedAddresses ? savedAddresses.innerHTML : 'container not found');
+        
+        console.log('=== End Debug Info ===');
+    }
+}
+
+// Initialize checkout when DOM and jQuery are loaded
 let checkout;
+$(document).ready(function() {
+    // Ensure jQuery validation is available
+    if (typeof $.validator !== 'undefined') {
+        checkout = new CheckoutManager();
+        console.log('Checkout initialized with jQuery validation');
+    } else {
+        console.error('jQuery validation plugin not loaded');
+        // Fallback to basic initialization
+        checkout = new CheckoutManager();
+    }
+});
+
+// Legacy DOM ready for non-jQuery dependent code
 document.addEventListener('DOMContentLoaded', function() {
-    checkout = new CheckoutManager();
-    // Ensure shipping form is auto-filled after DOM and fields are present
-    setTimeout(() => {
-        // Try to auto-fill from address or user info again
-        if (checkout.selectedAddress && checkout.addresses && checkout.addresses.length > 0) {
-            const selected = checkout.addresses.find(a => a.id === checkout.selectedAddress);
-            if (selected) checkout.autoFillShippingForm(selected);
-        } else {
-            checkout.autoFillShippingFormFromUser();
-        }
-    }, 300);
+    if (!checkout) {
+        checkout = new CheckoutManager();
+    }
 });
 
 // Export for other modules

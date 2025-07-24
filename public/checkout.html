@@ -205,6 +205,128 @@
             margin: 0;
         }
 
+        /* Payment Selection Styles */
+        .payment-selection {
+            margin-bottom: 2rem;
+        }
+
+        .payment-selection h4 {
+            margin-bottom: 1.5rem;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .payment-options {
+            margin-bottom: 2rem;
+        }
+
+        .payment-option {
+            margin-bottom: 1rem;
+        }
+
+        .payment-option input[type="radio"] {
+            display: none;
+        }
+
+        .payment-label {
+            display: flex;
+            align-items: center;
+            padding: 1.5rem;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .payment-label:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.1);
+        }
+
+        .payment-option input[type="radio"]:checked + .payment-label {
+            border-color: #667eea;
+            background: #f8f9ff;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.15);
+        }
+
+        .payment-icon {
+            margin-right: 1rem;
+            flex-shrink: 0;
+        }
+
+        .payment-icon i {
+            font-size: 2rem;
+            color: #667eea;
+        }
+
+        .payment-info h5 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .payment-info p {
+            margin: 0;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        /* Payment Instructions */
+        .payment-instructions {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1.5rem;
+            border-left: 4px solid #667eea;
+        }
+
+        .instruction-panel {
+            display: none;
+        }
+
+        .instruction-panel.active {
+            display: block;
+        }
+
+        .instruction-panel h5 {
+            color: #667eea;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        .instruction-panel ul {
+            margin: 0;
+            padding-left: 1.5rem;
+        }
+
+        .instruction-panel li {
+            margin-bottom: 0.5rem;
+            color: #555;
+        }
+
+        .bank-details,
+        .gcash-details {
+            background: white;
+            padding: 1rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+            border: 1px solid #e9ecef;
+        }
+
+        .bank-details p,
+        .gcash-details p {
+            margin: 0.5rem 0;
+            font-size: 0.9rem;
+        }
+
+        .bank-details strong,
+        .gcash-details strong {
+            color: #333;
+        }
+
         .payment-methods {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -420,6 +542,52 @@
             margin-top: 0.25rem;
         }
 
+        .review-section {
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .review-section:last-child {
+            border-bottom: none;
+        }
+
+        .review-section h4 {
+            color: #333;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        .review-info {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .review-card {
+            background: white;
+            padding: 1rem;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
+        }
+
+        .checkout-loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .checkout-loading .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
         @media (max-width: 768px) {
             .checkout-container {
                 padding: 1rem;
@@ -452,6 +620,28 @@
             .payment-methods {
                 grid-template-columns: 1fr;
             }
+        }
+
+        /* jQuery Validation Styles */
+        .error {
+            color: #dc3545;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+            display: block;
+        }
+
+        .form-group input.error,
+        .form-group select.error,
+        .form-group textarea.error {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+        }
+
+        .form-group input.valid,
+        .form-group select.valid,
+        .form-group textarea.valid {
+            border-color: #28a745;
+            box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
         }
     </style>
 </head>
@@ -493,9 +683,9 @@
                     </h3>
 
                     <div class="address-options">
-                        <h4>Select Shipping Address</h4>
+                        <h4>Shipping Address</h4>
                         <div id="saved-addresses">
-                            <!-- Saved addresses will be loaded here -->
+                            <!-- User address from users table will be loaded here -->
                         </div>
                         <button type="button" class="new-address-btn" onclick="showNewAddressForm()">
                             <i class="fas fa-plus"></i> Add New Address
@@ -505,20 +695,9 @@
                     <div id="new-address-form" style="display: none;">
                         <h4>New Shipping Address</h4>
                         <form id="shipping-form">
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="firstName">First Name *</label>
-                                    <input type="text" id="firstName" name="firstName" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="lastName">Last Name *</label>
-                                    <input type="text" id="lastName" name="lastName" required>
-                                </div>
-                            </div>
-
                             <div class="form-group">
-                                <label for="company">Company (Optional)</label>
-                                <input type="text" id="company" name="company">
+                                <label for="fullName">Full Name *</label>
+                                <input type="text" id="fullName" name="fullName" required>
                             </div>
 
                             <div class="form-group">
@@ -531,40 +710,9 @@
                                 <input type="text" id="address2" name="address2">
                             </div>
 
-                            <div class="form-row three-col">
-                                <div class="form-group">
-                                    <label for="city">City *</label>
-                                    <input type="text" id="city" name="city" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="state">State *</label>
-                                    <select id="state" name="state" required>
-                                        <option value="">Select State</option>
-                                        <option value="AL">Alabama</option>
-                                        <option value="AK">Alaska</option>
-                                        <option value="AZ">Arizona</option>
-                                        <!-- Add more states as needed -->
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="zipCode">ZIP Code *</label>
-                                    <input type="text" id="zipCode" name="zipCode" required>
-                                </div>
-                            </div>
-
                             <div class="form-group">
                                 <label for="phone">Phone Number *</label>
                                 <input type="tel" id="phone" name="phone" required>
-                            </div>
-
-                            <div class="checkbox-group">
-                                <input type="checkbox" id="saveAddress" name="saveAddress">
-                                <label for="saveAddress">Save this address for future orders</label>
-                            </div>
-
-                            <div class="checkbox-group">
-                                <input type="checkbox" id="billingAddress" name="billingAddress">
-                                <label for="billingAddress">Use as billing address</label>
                             </div>
                         </form>
                     </div>
@@ -575,59 +723,87 @@
                 <!-- Step 2: Payment Information -->
                 <div id="step-payment" class="checkout-step" style="display: none;">
                     <h3 class="section-title">
-                        <i class="fas fa-credit-card"></i>
-                        Payment Information
+                        <i class="fas fa-money-bill-wave"></i>
+                        Payment Method
                     </h3>
 
-                    <div class="payment-methods">
-                        <div class="payment-method selected" data-method="card">
-                            <i class="fas fa-credit-card"></i>
-                            <span>Credit/Debit Card</span>
-                            <div class="card-icons">
-                                <i class="fab fa-cc-visa"></i>
-                                <i class="fab fa-cc-mastercard"></i>
-                                <i class="fab fa-cc-amex"></i>
-                                <i class="fab fa-cc-discover"></i>
-                            </div>
-                        </div>
-                        <div class="payment-method" data-method="paypal">
-                            <i class="fab fa-paypal"></i>
-                            <span>PayPal</span>
-                        </div>
-                        <div class="payment-method" data-method="apple-pay">
-                            <i class="fab fa-apple-pay"></i>
-                            <span>Apple Pay</span>
-                        </div>
-                    </div>
-
-                    <div id="card-details" class="payment-details">
-                        <form id="payment-form">
-                            <div class="form-group">
-                                <label for="cardNumber">Card Number *</label>
-                                <input type="text" id="cardNumber" name="cardNumber" placeholder="1234 5678 9012 3456" required>
+                    <div class="payment-selection">
+                        <h4>Choose your payment method:</h4>
+                        
+                        <div class="payment-options">
+                            <div class="payment-option">
+                                <input type="radio" id="cod" name="paymentMethod" value="cod" checked>
+                                <label for="cod" class="payment-label">
+                                    <div class="payment-icon">
+                                        <i class="fas fa-truck"></i>
+                                    </div>
+                                    <div class="payment-info">
+                                        <h5>Cash on Delivery</h5>
+                                        <p>Pay when your order is delivered to your doorstep</p>
+                                    </div>
+                                </label>
                             </div>
 
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="expiryDate">Expiry Date *</label>
-                                    <input type="text" id="expiryDate" name="expiryDate" placeholder="MM/YY" required>
+                            <div class="payment-option">
+                                <input type="radio" id="bank-transfer" name="paymentMethod" value="bank-transfer">
+                                <label for="bank-transfer" class="payment-label">
+                                    <div class="payment-icon">
+                                        <i class="fas fa-university"></i>
+                                    </div>
+                                    <div class="payment-info">
+                                        <h5>Bank Transfer</h5>
+                                        <p>Transfer payment directly to our bank account</p>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <div class="payment-option">
+                                <input type="radio" id="gcash" name="paymentMethod" value="gcash">
+                                <label for="gcash" class="payment-label">
+                                    <div class="payment-icon">
+                                        <i class="fas fa-mobile-alt"></i>
+                                    </div>
+                                    <div class="payment-info">
+                                        <h5>GCash</h5>
+                                        <p>Pay using your GCash mobile wallet</p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Payment Instructions -->
+                        <div id="payment-instructions" class="payment-instructions">
+                            <div id="cod-instructions" class="instruction-panel active">
+                                <h5><i class="fas fa-info-circle"></i> Cash on Delivery Instructions</h5>
+                                <ul>
+                                    <li>Prepare exact amount if possible</li>
+                                    <li>Payment is collected upon delivery</li>
+                                    <li>Valid ID may be required</li>
+                                    <li>Delivery fee may apply</li>
+                                </ul>
+                            </div>
+
+                            <div id="bank-transfer-instructions" class="instruction-panel">
+                                <h5><i class="fas fa-info-circle"></i> Bank Transfer Instructions</h5>
+                                <div class="bank-details">
+                                    <p><strong>Bank:</strong> ThreadedTreasure Bank</p>
+                                    <p><strong>Account Name:</strong> ThreadedTreasure Store</p>
+                                    <p><strong>Account Number:</strong> 1234-5678-9012-3456</p>
+                                    <p><strong>Reference:</strong> Your Order Number</p>
                                 </div>
-                                <div class="form-group">
-                                    <label for="cvv">CVV *</label>
-                                    <input type="text" id="cvv" name="cvv" placeholder="123" required>
+                                <p><em>Please send proof of payment to orders@threadedtreasure.com</em></p>
+                            </div>
+
+                            <div id="gcash-instructions" class="instruction-panel">
+                                <h5><i class="fas fa-info-circle"></i> GCash Payment Instructions</h5>
+                                <div class="gcash-details">
+                                    <p><strong>GCash Number:</strong> +63 912 345 6789</p>
+                                    <p><strong>Account Name:</strong> ThreadedTreasure Store</p>
+                                    <p><strong>Reference:</strong> Your Order Number</p>
                                 </div>
+                                <p><em>Please send screenshot of payment confirmation to orders@threadedtreasure.com</em></p>
                             </div>
-
-                            <div class="form-group">
-                                <label for="cardName">Name on Card *</label>
-                                <input type="text" id="cardName" name="cardName" required>
-                            </div>
-                        </form>
-                    </div>
-
-                    <div class="security-info">
-                        <i class="fas fa-lock"></i>
-                        <span>Your payment information is encrypted and secure. We never store your card details.</span>
+                        </div>
                     </div>
 
                     <div class="d-flex gap-2">
@@ -662,14 +838,6 @@
                         <div id="review-items" class="review-info">
                             <!-- Order items will be populated here -->
                         </div>
-                    </div>
-
-                    <div class="d-flex gap-2">
-                        <button type="button" class="btn btn-secondary" onclick="previousStep()">Back</button>
-                        <button type="button" class="btn btn-success" onclick="placeOrder()">
-                            <span class="loading-spinner"></span>
-                            Place Order
-                        </button>
                     </div>
                 </div>
 
@@ -732,17 +900,14 @@
                     <span class="loading-spinner"></span>
                     Place Order
                 </button>
-
-                <div class="security-info">
-                    <i class="fas fa-shield-alt"></i>
-                    <span>Secure SSL encryption protects your information</span>
-                </div>
             </div>
         </div>
     </div>
 
     <div id="footer-placeholder"></div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.5/jquery.validate.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     <script src="js/checkout.js"></script>
     <script src="js/componentLoader.js"></script>
@@ -751,6 +916,25 @@
         document.addEventListener('DOMContentLoaded', function() {
             loadComponent('header-placeholder', 'components/header.html');
             loadComponent('footer-placeholder', 'components/footer.html');
+            
+            // Handle payment method selection
+            const paymentRadios = document.querySelectorAll('input[name="paymentMethod"]');
+            const instructionPanels = document.querySelectorAll('.instruction-panel');
+            
+            paymentRadios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    // Hide all instruction panels
+                    instructionPanels.forEach(panel => {
+                        panel.classList.remove('active');
+                    });
+                    
+                    // Show selected payment method instructions
+                    const selectedPanel = document.getElementById(this.value + '-instructions');
+                    if (selectedPanel) {
+                        selectedPanel.classList.add('active');
+                    }
+                });
+            });
         });
     </script>
 </body>
