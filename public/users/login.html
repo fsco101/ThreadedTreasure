@@ -498,13 +498,9 @@
                         
                         showToast('Login successful! Welcome back!', 'success');
                         
-                        // Redirect based on user role
+                        // Redirect all users to shop.html
                         setTimeout(function() {
-                            if (response.data.user.role === 'admin') {
-                                window.location.href = '../admin/crud-manager.html';
-                            } else {
-                                window.location.href = '../shop.html';
-                            }
+                            window.location.href = '../shop.html';
                         }, 1500);
                     } else {
                         showToast(response.message || 'Login failed. Please try again.', 'error');
