@@ -70,9 +70,10 @@ router.post('/register', async (req, res) => {
             const hashedPassword = await bcrypt.hash(password, 10);
 
             // Insert new user
+            // Always store is_active as 1 (active) for registration
             const insertUserQuery = `
                 INSERT INTO users (name, email, phone, address, password, role, is_active, newsletter_subscribed, created_at)
-                VALUES (?, ?, ?, ?, ?, 'user', true, ?, NOW())
+                VALUES (?, ?, ?, ?, ?, 'user', 1, ?, NOW())
             `;
 
             db.query(insertUserQuery, [name, email, phone, address, hashedPassword, newsletter || false], (err, result) => {
@@ -494,9 +495,18 @@ router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
     }
 
     // Only allow updating role and is_active
+    // Always store is_active as 1 or 0 integer
+    let activeValue;
+    if (typeof is_active !== 'undefined') {
+        if (is_active === true || is_active === 1 || is_active === '1' || is_active === 'on') {
+            activeValue = 1;
+        } else {
+            activeValue = 0;
+        }
+    }
     if (typeof role !== 'undefined' && typeof is_active !== 'undefined') {
         const updateQuery = 'UPDATE users SET role = ?, is_active = ? WHERE id = ?';
-        db.query(updateQuery, [role, is_active, userId], (err, result) => {
+        db.query(updateQuery, [role, activeValue, userId], (err, result) => {
             if (err) {
                 console.error('Database error:', err);
                 return res.status(500).json({
@@ -538,7 +548,7 @@ router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
         });
     } else if (typeof is_active !== 'undefined') {
         const updateQuery = 'UPDATE users SET is_active = ? WHERE id = ?';
-        db.query(updateQuery, [is_active, userId], (err, result) => {
+        db.query(updateQuery, [activeValue, userId], (err, result) => {
             if (err) {
                 console.error('Database error:', err);
                 return res.status(500).json({
@@ -569,9 +579,16 @@ router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
 router.put('/:id/status', authenticateToken, requireAdmin, (req, res) => {
     const userId = req.params.id;
     const { is_active } = req.body;
-
+    let activeValue = 1;
+    if (typeof is_active !== 'undefined') {
+        if (is_active === true || is_active === 1 || is_active === '1' || is_active === 'on') {
+            activeValue = 1;
+        } else {
+            activeValue = 0;
+        }
+    }
     const updateStatusQuery = 'UPDATE users SET is_active = ? WHERE id = ?';
-    db.query(updateStatusQuery, [is_active, userId], (err, result) => {
+    db.query(updateStatusQuery, [activeValue, userId], (err, result) => {
         if (err) {
             console.error('Database error:', err);
             return res.status(500).json({

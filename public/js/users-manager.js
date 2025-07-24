@@ -114,8 +114,8 @@ class UsersManager {
                 { 
                     data: 'is_active',
                     render: (data) => {
-                        // Accept 1, '1', true as active
-                        const isActive = data == 1 || data === true || data === '1';
+                        // Accept 1 as active, 0 as inactive (integer only)
+                        const isActive = Number(data) === 1;
                         return `<span class="status-badge ${isActive ? 'status-active' : 'status-inactive'}">${isActive ? 'Active' : 'Inactive'}</span>`;
                     }
                 },
@@ -299,7 +299,8 @@ class UsersManager {
 
     generateUserForm(data = null) {
         const userRole = data ? data.role : 'user';
-        const userActive = data ? (data.is_active ? 'checked' : '') : 'checked';
+        // Always treat is_active as integer 1 or 0
+        const userActive = data ? (Number(data.is_active) === 1 ? 'checked' : '') : 'checked';
         let formHtml = '';
         if (this.currentMode === 'add') {
             // Full form for adding new user
@@ -397,11 +398,11 @@ class UsersManager {
         const id = this.currentId;
         let payload = {};
         if (isEdit) {
-            // Only send role and is_active for edit
+            // Only send role and is_active for edit, always as integer
             payload.role = formData.get('role');
             payload.is_active = formData.get('is_active') === 'on' ? 1 : 0;
         } else {
-            // For add, send all fields
+            // For add, send all fields, always as integer
             payload.name = formData.get('name');
             payload.email = formData.get('email');
             payload.password = formData.get('password');
