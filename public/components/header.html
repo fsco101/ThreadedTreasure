@@ -6,86 +6,26 @@
         </div>
         <nav class="main-nav">
             <ul class="nav-links">
-                <li><a href="shop.html">Home</a></li>
-                <li><a href="shop.html">Shop</a></li>
-
+                <li class="nav-home"><a href="shop.html">Home</a></li>
+                <li><a href="cart.html" class="action-btn cart-btn">
+                    <i class="fas fa-shopping-cart"></i> </a></li>
+                <li class="nav-profile"><a href="profile.html">Profile</a></li>
+                <li class="nav-logout"><a href="users/logout.html">Logout</a></li>
+                <!-- Admin Dropdown -->
+                <li class="nav-admin-dropdown dropdown" style="display:none;">
+                    <a href="#" class="dropdown-toggle admin-dropdown-toggle" id="adminDropdownMenu" role="button">
+                        Admin <i class="fas fa-chevron-down"></i>
+                    </a>
+                    <ul class="dropdown-menu admin-dropdown-menu">
+                        <li class="nav-admin-dashboard"><a href="admin/admin-dashboard.html">Admin Analytics Dashboard</a></li>
+                        <li class="nav-categories-manager"><a href="admin/categories-manager.html">Categories Manager</a></li>
+                        <li class="nav-products-manager"><a href="admin/products-manager-new.html">Products Manager</a></li>
+                        <li class="nav-orders-manager"><a href="admin/orders-manager.html">Orders Manager</a></li>
+                        <li class="nav-users-manager"><a href="admin/users-manager.html">Users Manager</a></li>
+                    </ul>
+                </li>
             </ul>
         </nav>
-        <div class="header-actions">
-            <!-- Guest/Unauthenticated Users -->
-            <div id="guest-actions" class="action-group">
-                <a href="cart.html" class="action-btn cart-btn">
-                    <i class="fas fa-shopping-cart"></i>
-                    <span class="cart-count">0</span>
-                </a>
-                <a href="users/login.html" class="action-btn">
-                    <i class="fas fa-sign-in-alt"></i>
-                    <span class="btn-text">Login</span>
-                </a>
-                <a href="users/register.html" class="action-btn primary">
-                    <i class="fas fa-user-plus"></i>
-                    <span class="btn-text">Sign Up</span>
-                </a>
-            </div>
-
-            <!-- Authenticated Users -->
-            <div id="user-actions" class="action-group" style="display: none;">
-                <a href="cart.html" class="action-btn cart-btn">
-                    <i class="fas fa-shopping-cart"></i>
-                    <span class="cart-count">0</span>
-                </a>
-                
-                <!-- User Profile Dropdown -->
-                <div class="dropdown user-dropdown">
-                    <button class="action-btn user-btn dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown">
-                        <div class="user-avatar">
-                            <i class="fas fa-user"></i>
-                        </div>
-                        <div class="user-info">
-                            <span class="user-name" id="user-name">User</span>
-                            <span class="user-email" id="user-email">user@example.com</span>
-                        </div>
-                        <i class="fas fa-chevron-down"></i>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end user-menu">
-                        <li class="user-menu-header">
-                            <div class="user-avatar-large">
-                                <i class="fas fa-user"></i>
-                            </div>
-                            <div class="user-details">
-                                <span class="display-name" id="dropdown-user-name">User</span>
-                                <span class="display-email" id="dropdown-user-email">user@example.com</span>
-                            </div>
-                        </li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="profile.html">
-                            <i class="fas fa-user-circle"></i> My Profile
-                        </a></li>
-                        <li><a class="dropdown-item" href="users/my-orders.html">
-                            <i class="fas fa-shopping-bag"></i> My Orders
-                        </a></li>
-                        <li><a class="dropdown-item" href="profile.html#addresses">
-                            <i class="fas fa-map-marker-alt"></i> My Addresses
-                        </a></li>
-                        <li><a class="dropdown-item" href="#wishlist">
-                            <i class="fas fa-heart"></i> Wishlist
-                        </a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="profile.html#preferences">
-                            <i class="fas fa-cog"></i> Settings
-                        </a></li>
-                        <li><a class="dropdown-item" href="#help">
-                            <i class="fas fa-question-circle"></i> Help & Support
-                        </a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item logout-item" href="users/logout.html">
-                            <i class="fas fa-sign-out-alt"></i> Sign Out
-                        </a></li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </div>
 </header>
 
 <style>
@@ -339,6 +279,56 @@
     color: white !important;
 }
 
+/* Admin Dropdown Styles */
+.nav-admin-dropdown .admin-dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.3s ease;
+    z-index: 1000;
+    list-style: none;
+    margin: 0;
+    padding: 0.5rem 0;
+    min-width: 200px;
+}
+
+.nav-admin-dropdown .admin-dropdown-menu.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.nav-admin-dropdown .admin-dropdown-menu li {
+    margin: 0;
+}
+
+.nav-admin-dropdown .admin-dropdown-menu a {
+    display: block;
+    padding: 0.75rem 1rem;
+    color: #333;
+    text-decoration: none;
+    font-weight: 500;
+    border-radius: 0;
+    transition: all 0.3s ease;
+    border-bottom: 1px solid rgba(102, 126, 234, 0.1);
+}
+
+.nav-admin-dropdown .admin-dropdown-menu a:hover {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    transform: translateX(5px);
+}
+
+.nav-admin-dropdown .admin-dropdown-menu li:last-child a {
+    border-bottom: none;
+}
+
 /* Dropdown functionality */
 .dropdown {
     position: relative;
@@ -507,23 +497,44 @@ class HeaderAuth {
 
     init() {
         console.log('🚀 Initializing HeaderAuth...');
-        this.checkAuthStatus();
-        this.updateCartCount();
-        this.setupMobileMenu();
-        this.setupDropdowns();
         
-        // Listen for storage changes
-        window.addEventListener('storage', () => {
-            console.log('🔄 Storage changed, rechecking auth...');
+        // Wait for DOM to be fully loaded before proceeding
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                this.performInit();
+            });
+        } else {
+            this.performInit();
+        }
+    }
+
+    performInit() {
+        try {
             this.checkAuthStatus();
             this.updateCartCount();
-        });
+            this.setupMobileMenu();
+            this.setupDropdowns();
+            
+            // Listen for storage changes
+            window.addEventListener('storage', (e) => {
+                console.log('🔄 Storage changed, rechecking auth...', e.key);
+                if (e.key === 'userToken' || e.key === 'userData' || e.key?.startsWith('cart_')) {
+                    this.checkAuthStatus();
+                    this.updateCartCount();
+                }
+            });
 
-        // Expose refresh method globally for debugging
-        window.refreshHeaderAuth = () => {
-            console.log('🔄 Manual auth refresh triggered');
-            this.checkAuthStatus();
-        };
+            // Expose refresh method globally for debugging
+            window.refreshHeaderAuth = () => {
+                console.log('🔄 Manual auth refresh triggered');
+                this.checkAuthStatus();
+                this.updateCartCount();
+            };
+            
+            console.log('✅ HeaderAuth initialized successfully');
+        } catch (error) {
+            console.error('❌ Error initializing HeaderAuth:', error);
+        }
     }
 
     checkAuthStatus() {
@@ -536,11 +547,17 @@ class HeaderAuth {
         console.log('UserData found:', !!userData);
         
         // Check if both token and userData exist and are valid
-        if (token && userData && token !== 'null' && userData !== 'null') {
+        if (token && userData && token !== 'null' && userData !== 'null' && token.trim() !== '' && userData.trim() !== '') {
             try {
                 const user = JSON.parse(userData);
-                console.log('✅ User authenticated:', user.name || user.email);
-                this.showAuthenticatedState(user);
+                if (user && typeof user === 'object' && (user.id || user.email)) {
+                    console.log('✅ User authenticated:', user.name || user.email);
+                    this.showAuthenticatedState(user);
+                } else {
+                    console.log('❌ Invalid user object structure');
+                    this.cleanupInvalidAuth();
+                    this.showGuestState();
+                }
             } catch (error) {
                 console.error('❌ Error parsing user data:', error);
                 this.cleanupInvalidAuth();
@@ -561,64 +578,105 @@ class HeaderAuth {
 
     showGuestState() {
         console.log('👤 Showing guest state');
+        // Hide all nav links except login/register for guests
+        document.querySelectorAll('.nav-links li').forEach(li => li.style.display = 'none');
+        
+        const loginNav = document.querySelector('.nav-login');
+        const registerNav = document.querySelector('.nav-register');
+        if (loginNav) loginNav.style.display = '';
+        if (registerNav) registerNav.style.display = '';
+        
+        // Show guest actions, hide user actions
         const guestActions = document.getElementById('guest-actions');
         const userActions = document.getElementById('user-actions');
+        if (guestActions) guestActions.style.display = 'flex';
+        if (userActions) userActions.style.display = 'none';
         
-        if (guestActions) {
-            guestActions.style.display = 'flex';
-            console.log('✅ Guest actions shown');
-        }
-        if (userActions) {
-            userActions.style.display = 'none';
-            console.log('✅ User actions hidden');
-        }
-        
-        // Refresh user context in shop page if function exists
-        if (typeof window.refreshUserContext === 'function') {
-            window.refreshUserContext();
-        }
+        if (typeof window.refreshUserContext === 'function') window.refreshUserContext();
     }
 
     showAuthenticatedState(user) {
         console.log('🔐 Showing authenticated state for:', user.name || user.email);
+        // Hide all nav links first
+        document.querySelectorAll('.nav-links li').forEach(li => li.style.display = 'none');
+        
+        // Show common user links with null checks
+        const navElements = {
+            home: document.querySelector('.nav-home'),
+            shop: document.querySelector('.nav-shop'),
+            cart: document.querySelector('.nav-cart'),
+            checkout: document.querySelector('.nav-checkout'),
+            profile: document.querySelector('.nav-profile'),
+            logout: document.querySelector('.nav-logout'),
+            login: document.querySelector('.nav-login'),
+            register: document.querySelector('.nav-register'),
+            adminDropdown: document.querySelector('.nav-admin-dropdown')
+        };
+        
+        // Show user navigation links
+        if (navElements.home) navElements.home.style.display = '';
+        if (navElements.shop) navElements.shop.style.display = '';
+        if (navElements.cart) navElements.cart.style.display = '';
+        if (navElements.checkout) navElements.checkout.style.display = '';
+        if (navElements.profile) navElements.profile.style.display = '';
+        if (navElements.logout) navElements.logout.style.display = '';
+        
+        // Show admin dropdown if user is admin
+        const isAdmin = user.role === 'admin' || user.is_admin === 1 || user.is_admin === '1' || user.is_admin === true;
+        if (isAdmin && navElements.adminDropdown) {
+            navElements.adminDropdown.style.display = '';
+        }
+        
+        // Hide login/register links
+        if (navElements.login) navElements.login.style.display = 'none';
+        if (navElements.register) navElements.register.style.display = 'none';
+        
+        // Show/hide action groups
         const guestActions = document.getElementById('guest-actions');
         const userActions = document.getElementById('user-actions');
-        
-        if (guestActions) {
-            guestActions.style.display = 'none';
-            console.log('✅ Guest actions hidden');
-        }
-        if (userActions) {
-            userActions.style.display = 'flex';
-            console.log('✅ User actions shown');
-        }
+        if (guestActions) guestActions.style.display = 'none';
+        if (userActions) userActions.style.display = 'flex';
         
         // Update user info in dropdown
         this.updateUserInfo(user);
-        
-        // Refresh user context in shop page if function exists
-        if (typeof window.refreshUserContext === 'function') {
-            window.refreshUserContext();
-        }
+        if (typeof window.refreshUserContext === 'function') window.refreshUserContext();
     }
 
     updateUserInfo(user) {
-        // Update user name and email in the button
-        const userName = document.getElementById('user-name');
-        const userEmail = document.getElementById('user-email');
-        const dropdownUserName = document.getElementById('dropdown-user-name');
-        const dropdownUserEmail = document.getElementById('dropdown-user-email');
+        // Update user name and email in the button with null checks
+        const userElements = {
+            userName: document.getElementById('user-name'),
+            userEmail: document.getElementById('user-email'),
+            dropdownUserName: document.getElementById('dropdown-user-name'),
+            dropdownUserEmail: document.getElementById('dropdown-user-email')
+        };
         
-        if (userName) userName.textContent = user.name || 'User';
-        if (userEmail) userEmail.textContent = user.email || 'user@example.com';
-        if (dropdownUserName) dropdownUserName.textContent = user.name || 'User';
-        if (dropdownUserEmail) dropdownUserEmail.textContent = user.email || 'user@example.com';
+        const displayName = user.name || user.first_name || 'User';
+        const displayEmail = user.email || 'user@example.com';
+        
+        if (userElements.userName) userElements.userName.textContent = displayName;
+        if (userElements.userEmail) userElements.userEmail.textContent = displayEmail;
+        if (userElements.dropdownUserName) userElements.dropdownUserName.textContent = displayName;
+        if (userElements.dropdownUserEmail) userElements.dropdownUserEmail.textContent = displayEmail;
         
         // Update avatar if available
         if (user.profile_photo) {
             const avatars = document.querySelectorAll('.user-avatar, .user-avatar-large');
             avatars.forEach(avatar => {
-                avatar.innerHTML = `<img src="/uploads/${user.profile_photo}" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
+                if (avatar) {
+                    const avatarUrl = user.profile_photo.startsWith('/') || user.profile_photo.startsWith('http') 
+                        ? user.profile_photo 
+                        : `/uploads/${user.profile_photo}`;
+                    avatar.innerHTML = `<img src="${avatarUrl}" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" onerror="this.parentElement.innerHTML='<i class=\\"fas fa-user\\"></i>';">`;
+                }
+            });
+        } else {
+            // Reset to default avatar icon if no profile photo
+            const avatars = document.querySelectorAll('.user-avatar, .user-avatar-large');
+            avatars.forEach(avatar => {
+                if (avatar) {
+                    avatar.innerHTML = '<i class="fas fa-user"></i>';
+                }
             });
         }
     }
@@ -631,7 +689,7 @@ class HeaderAuth {
             
             let cartKey = 'cart_guest'; // Default for guests
             
-            if (token && userData) {
+            if (token && userData && token !== 'null' && userData !== 'null') {
                 try {
                     const user = JSON.parse(userData);
                     if (user && user.id && !user.isGuest) {
@@ -639,21 +697,33 @@ class HeaderAuth {
                     }
                 } catch (error) {
                     console.error('Error parsing user data in header:', error);
+                    cartKey = 'cart_guest'; // Fallback to guest cart
                 }
             }
             
-            const cart = JSON.parse(localStorage.getItem(cartKey)) || [];
-            const totalItems = cart.reduce((sum, item) => sum + (item.quantity || 0), 0);
+            const cartData = localStorage.getItem(cartKey);
+            const cart = cartData ? JSON.parse(cartData) : [];
+            const totalItems = Array.isArray(cart) ? cart.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0) : 0;
             
             const cartCounts = document.querySelectorAll('.cart-count');
             cartCounts.forEach(count => {
-                count.textContent = totalItems;
-                count.style.display = totalItems > 0 ? 'block' : 'none';
+                if (count) {
+                    count.textContent = totalItems;
+                    count.style.display = totalItems > 0 ? 'block' : 'none';
+                }
             });
             
             console.log(`Header: Updated cart count for ${cartKey}: ${totalItems}`);
         } catch (error) {
             console.error('Error updating cart count:', error);
+            // Set cart count to 0 on error
+            const cartCounts = document.querySelectorAll('.cart-count');
+            cartCounts.forEach(count => {
+                if (count) {
+                    count.textContent = '0';
+                    count.style.display = 'none';
+                }
+            });
         }
     }
 
@@ -698,37 +768,50 @@ class HeaderAuth {
     }
 
     setupDropdowns() {
-        // Simple dropdown functionality without Bootstrap dependency
-        const dropdownToggles = document.querySelectorAll('.dropdown-toggle');
-        
-        dropdownToggles.forEach(toggle => {
-            toggle.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                const dropdown = toggle.closest('.dropdown');
-                const menu = dropdown.querySelector('.dropdown-menu');
-                
-                // Close other dropdowns
-                document.querySelectorAll('.dropdown-menu').forEach(otherMenu => {
-                    if (otherMenu !== menu) {
-                        otherMenu.classList.remove('show');
-                    }
-                });
-                
-                // Toggle current dropdown
-                menu.classList.toggle('show');
+        try {
+            // Simple dropdown functionality without Bootstrap dependency
+            const dropdownToggles = document.querySelectorAll('.dropdown-toggle');
+            
+            dropdownToggles.forEach(toggle => {
+                // Remove existing listeners to prevent duplicates
+                toggle.removeEventListener('click', this.handleDropdownToggle);
+                toggle.addEventListener('click', this.handleDropdownToggle.bind(this));
             });
-        });
+            
+            // Close dropdowns when clicking outside
+            document.removeEventListener('click', this.handleOutsideClick);
+            document.addEventListener('click', this.handleOutsideClick.bind(this));
+        } catch (error) {
+            console.error('Error setting up dropdowns:', error);
+        }
+    }
+
+    handleDropdownToggle(e) {
+        e.preventDefault();
+        e.stopPropagation();
         
-        // Close dropdowns when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.dropdown')) {
-                document.querySelectorAll('.dropdown-menu').forEach(menu => {
-                    menu.classList.remove('show');
-                });
+        const dropdown = e.target.closest('.dropdown');
+        const menu = dropdown?.querySelector('.dropdown-menu');
+        
+        if (!menu) return;
+        
+        // Close other dropdowns
+        document.querySelectorAll('.dropdown-menu').forEach(otherMenu => {
+            if (otherMenu !== menu) {
+                otherMenu.classList.remove('show');
             }
         });
+        
+        // Toggle current dropdown
+        menu.classList.toggle('show');
+    }
+
+    handleOutsideClick(e) {
+        if (!e.target.closest('.dropdown')) {
+            document.querySelectorAll('.dropdown-menu').forEach(menu => {
+                menu.classList.remove('show');
+            });
+        }
     }
 }
 
@@ -766,35 +849,42 @@ window.addEventListener('loginSuccess', function(event) {
 // Periodic check for authentication state (fallback)
 setInterval(() => {
     if (window.headerAuth) {
-        const token = localStorage.getItem('userToken');
-        const userData = localStorage.getItem('userData');
-        const isCurrentlyShowingAuth = document.getElementById('user-actions').style.display !== 'none';
-        const shouldShowAuth = !!(token && userData && token !== 'null' && userData !== 'null');
-        
-        // Only refresh if state mismatch detected
-        if (isCurrentlyShowingAuth !== shouldShowAuth) {
-            console.log('🔄 State mismatch detected, refreshing auth...');
-            window.headerAuth.checkAuthStatus();
+        try {
+            const token = localStorage.getItem('userToken');
+            const userData = localStorage.getItem('userData');
+            const userActionsElement = document.getElementById('user-actions');
+            
+            if (!userActionsElement) return; // Skip if element doesn't exist
+            
+            const isCurrentlyShowingAuth = userActionsElement.style.display !== 'none';
+            const hasValidAuth = !!(token && userData && token !== 'null' && userData !== 'null' && token.trim() !== '' && userData.trim() !== '');
+            
+            // Only refresh if state mismatch detected
+            if (isCurrentlyShowingAuth !== hasValidAuth) {
+                console.log('🔄 State mismatch detected, refreshing auth...');
+                window.headerAuth.checkAuthStatus();
+            }
+        } catch (error) {
+            console.error('Error in periodic auth check:', error);
         }
     }
-}, 2000); // Check every 2 seconds
-</script>
-        display: block;
-    }
-    
-    });
-</script>
-</style>
+}, 3000); // Check every 3 seconds (reduced frequency)
 
-<script>
-// Mobile menu toggle functionality
+// Admin dropdown functionality (for nav)
 document.addEventListener('DOMContentLoaded', function() {
-    const mobileToggle = document.querySelector('.mobile-menu-toggle');
-    const mainNav = document.querySelector('.main-nav');
-    
-    if (mobileToggle && mainNav) {
-        mobileToggle.addEventListener('click', function() {
-            mainNav.classList.toggle('active');
+    const adminDropdownToggle = document.querySelector('.admin-dropdown-toggle');
+    const adminDropdownMenu = document.querySelector('.admin-dropdown-menu');
+    if (adminDropdownToggle && adminDropdownMenu) {
+        adminDropdownToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            adminDropdownMenu.classList.toggle('show');
+        });
+        // Close admin dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.nav-admin-dropdown')) {
+                adminDropdownMenu.classList.remove('show');
+            }
         });
     }
 });
