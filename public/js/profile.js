@@ -68,9 +68,21 @@ class ProfileManager {
             this.checkPasswordStrength(e.target.value);
         });
 
-        // Avatar upload
-        document.getElementById('avatar-upload').addEventListener('change', (e) => {
-            this.handleAvatarUpload(e.target.files[0]);
+        // Avatar upload - delegate event to handle dynamic content
+        document.addEventListener('change', (e) => {
+            if (e.target && e.target.id === 'avatar-upload') {
+                this.handleAvatarUpload(e.target.files[0]);
+            }
+        });
+
+        // Also handle click events for avatar upload button
+        document.addEventListener('click', (e) => {
+            if (e.target && e.target.closest('.avatar-upload')) {
+                const uploadInput = document.getElementById('avatar-upload');
+                if (uploadInput) {
+                    uploadInput.click();
+                }
+            }
         });
     }
 
@@ -113,12 +125,28 @@ class ProfileManager {
             if (data.success) {
                 this.currentUser = data.data;
                 this.populateProfile(data.data);
+                console.log('Profile loaded successfully:', data.data);
             } else {
                 this.showAlert('profile-alerts', data.message || 'Failed to load profile', 'error');
             }
         } catch (error) {
             console.error('Error loading profile:', error);
-            this.showAlert('profile-alerts', 'Network error occurred', 'error');
+            
+            // Try to load from localStorage as fallback
+            const userData = localStorage.getItem('userData');
+            if (userData) {
+                try {
+                    const user = JSON.parse(userData);
+                    this.currentUser = user;
+                    this.populateProfile(user);
+                    this.showAlert('profile-alerts', 'Loaded profile from cache. Some data may be outdated.', 'warning');
+                    console.log('Loaded profile from localStorage:', user);
+                } catch (e) {
+                    this.showAlert('profile-alerts', 'Failed to load profile data', 'error');
+                }
+            } else {
+                this.showAlert('profile-alerts', 'Network error occurred', 'error');
+            }
         }
     }
 
@@ -139,16 +167,72 @@ class ProfileManager {
         document.getElementById('phone').value = user.phone || '';
         document.getElementById('address').value = user.address || '';
 
-        // Avatar
-        if (user.profile_photo) {
-            const avatarUrl = user.profile_photo.startsWith('/') ? user.profile_photo : `/uploads/${user.profile_photo}`;
-            document.getElementById('profile-avatar').innerHTML = `
-                <img src="${avatarUrl}" alt="Profile Avatar">
+        // Avatar handling - support multiple field names and proper URL construction
+        this.updateAvatarDisplay(user);
+    }
+
+    updateAvatarDisplay(user) {
+        const avatarContainer = document.getElementById('profile-avatar');
+        
+        // Check for various possible photo field names
+        const photoField = user.profile_photo || user.avatar || user.photo || user.profile_picture;
+        
+        if (photoField) {
+            // Construct proper URL for uploads
+            let avatarUrl;
+            
+            if (photoField.startsWith('http://') || photoField.startsWith('https://')) {
+                // Full URL
+                avatarUrl = photoField;
+            } else if (photoField.startsWith('/uploads/')) {
+                // Already has uploads path
+                avatarUrl = photoField;
+            } else if (photoField.startsWith('uploads/')) {
+                // Missing leading slash
+                avatarUrl = `/${photoField}`;
+            } else if (photoField.startsWith('/')) {
+                // Starts with slash but might not have uploads prefix
+                avatarUrl = photoField.includes('/uploads/') ? photoField : `/uploads${photoField}`;
+            } else if (photoField.startsWith('users/')) {
+                // Legacy path format - remove users/ prefix
+                const filename = photoField.replace('users/', '');
+                avatarUrl = `/uploads/${filename}`;
+            } else {
+                // Just filename - add uploads path
+                avatarUrl = `/uploads/${photoField}`;
+            }
+            
+            console.log('User photo field:', photoField);
+            console.log('Constructed avatar URL:', avatarUrl);
+            
+            avatarContainer.innerHTML = `
+                <img src="${avatarUrl}" alt="Profile Avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" 
+                     onload="console.log('Avatar image loaded successfully:', this.src);"
+                     onerror="console.error('Failed to load avatar:', this.src); this.style.display='none'; this.parentNode.querySelector('.avatar-icon').style.display='flex';">
+                <i class="fas fa-user avatar-icon" style="display: none; font-size: 3rem; color: white;"></i>
                 <input type="file" id="avatar-upload" accept="image/*" style="display: none;">
                 <div class="avatar-upload" onclick="document.getElementById('avatar-upload').click()">
                     <i class="fas fa-camera"></i>
                 </div>
             `;
+        } else {
+            console.log('No photo field found in user data:', user);
+            // No photo - show default icon
+            avatarContainer.innerHTML = `
+                <i class="fas fa-user avatar-icon" style="font-size: 3rem; color: white;"></i>
+                <input type="file" id="avatar-upload" accept="image/*" style="display: none;">
+                <div class="avatar-upload" onclick="document.getElementById('avatar-upload').click()">
+                    <i class="fas fa-camera"></i>
+                </div>
+            `;
+        }
+        
+        // Re-attach event listener for avatar upload
+        const avatarUpload = document.getElementById('avatar-upload');
+        if (avatarUpload) {
+            avatarUpload.addEventListener('change', (e) => {
+                this.handleAvatarUpload(e.target.files[0]);
+            });
         }
     }
 
@@ -398,20 +482,49 @@ class ProfileManager {
             
             if (data.success) {
                 this.showAlert('profile-alerts', 'Avatar updated successfully!', 'success');
-                // Update avatar display
-                document.getElementById('profile-avatar').innerHTML = `
-                    <img src="${data.data.avatar}" alt="Profile Avatar">
-                    <input type="file" id="avatar-upload" accept="image/*" style="display: none;">
-                    <div class="avatar-upload" onclick="document.getElementById('avatar-upload').click()">
-                        <i class="fas fa-camera"></i>
-                    </div>
-                `;
+                
+                // Extract the avatar filename from response
+                const avatarFilename = data.data.avatar || data.data.profile_photo;
+                console.log('Avatar upload response:', data.data);
+                console.log('Avatar filename:', avatarFilename);
+                
+                // Update current user data
+                if (this.currentUser) {
+                    this.currentUser.profile_photo = avatarFilename;
+                    this.currentUser.avatar = avatarFilename; // Backup field
+                }
+                
+                // Update avatar display with new image
+                this.updateAvatarDisplay(this.currentUser || { 
+                    profile_photo: avatarFilename 
+                });
+                
+                // Update localStorage if user data exists
+                const userData = localStorage.getItem('userData');
+                if (userData) {
+                    try {
+                        const user = JSON.parse(userData);
+                        user.profile_photo = avatarFilename;
+                        user.avatar = avatarFilename;
+                        localStorage.setItem('userData', JSON.stringify(user));
+                        console.log('Updated localStorage with new avatar:', avatarFilename);
+                    } catch (e) {
+                        console.warn('Could not update localStorage user data');
+                    }
+                }
+                
             } else {
                 this.showAlert('profile-alerts', data.message || 'Failed to update avatar', 'error');
             }
         } catch (error) {
             console.error('Error uploading avatar:', error);
-            this.showAlert('profile-alerts', 'Network error occurred', 'error');
+            
+            // Check if server is available
+            if (error.message.includes('fetch')) {
+                this.showAlert('profile-alerts', 'Unable to connect to server. Please check your connection.', 'error');
+            } else {
+                this.showAlert('profile-alerts', 'Network error occurred', 'error');
+            }
         }
     }
 

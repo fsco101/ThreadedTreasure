@@ -288,9 +288,10 @@ class UserController {
         });
       }
 
-      const avatarPath = `users/${req.file.filename}`;
+      // The file is stored directly in uploads/ directory, not in a users/ subdirectory
+      const avatarPath = req.file.filename;
 
-      // Update user avatar
+      // Update user avatar in profile_photo column
       await promisePool.execute('UPDATE users SET profile_photo = ?, updated_at = NOW() WHERE id = ?', [avatarPath, userId]);
 
       // Get updated user
@@ -302,11 +303,13 @@ class UserController {
         success: true,
         message: 'Avatar uploaded successfully',
         data: {
-          avatar: `/uploads/${avatarPath}`,
+          avatar: avatarPath,
+          profile_photo: avatarPath,
           user: user
         }
       });
     } catch (error) {
+      console.error('Avatar upload error:', error);
       res.status(500).json({
         success: false,
         message: error.message
