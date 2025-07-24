@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - ThreadedTreasure</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #667eea;
+            --secondary-color: #764ba2;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .register-container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .register-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .register-header .brand-logo {
+            font-size: 2.5rem;
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+
+        .register-header h1 {
+            color: var(--primary-color);
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .register-header p {
+            color: #6c757d;
+            margin: 0;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 8px;
+        }
+
+        .form-control {
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 12px 16px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+
+        .input-group-text {
+            background: none;
+            border: none;
+            color: #6c757d;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border: none;
+            border-radius: 10px;
+            padding: 12px 30px;
+            font-weight: 600;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .auth-links {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .auth-links a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .auth-links a:hover {
+            text-decoration: underline;
+        }
+
+        .is-invalid {
+            border-color: #dc3545;
+        }
+
+        .invalid-feedback {
+            display: block;
+            color: #dc3545;
+            font-size: 0.875rem;
+            margin-top: 5px;
+        }
+
+        .is-valid {
+            border-color: #28a745;
+        }
+
+        .valid-feedback {
+            display: block;
+            color: #28a745;
+            font-size: 0.875rem;
+            margin-top: 5px;
+        }
+
+        .loading-spinner {
+            display: none;
+            margin-right: 8px;
+        }
+
+        .form-check-input:checked {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .form-check-input:focus {
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+
+        .password-strength {
+            margin-top: 5px;
+            font-size: 12px;
+        }
+
+        .strength-weak { color: #dc3545; }
+        .strength-medium { color: #fd7e14; }
+        .strength-strong { color: #28a745; }
+
+        .required {
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="register-container">
+        <div class="register-header">
+            <div class="brand-logo">
+                <i class="fas fa-tshirt"></i>
+            </div>
+            <h1>Create Account</h1>
+            <p>Join ThreadedTreasure today</p>
+        </div>
+
+        <form id="registerForm">
+            <div class="form-group">
+                <label class="form-label">Full Name <span class="required">*</span></label>
+                <input type="text" class="form-control" id="fullName" name="name" required>
+                <div class="invalid-feedback"></div>
+                <div class="valid-feedback"></div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Email Address <span class="required">*</span></label>
+                <input type="email" class="form-control" id="email" name="email" required>
+                <div class="invalid-feedback"></div>
+                <div class="valid-feedback"></div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Phone Number</label>
+                <input type="tel" class="form-control" id="phone" name="phone" placeholder="+1 (555) 123-4567">
+                <div class="invalid-feedback"></div>
+                <div class="valid-feedback"></div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Address</label>
+                <input type="text" class="form-control" id="address" name="address">
+                <div class="invalid-feedback"></div>
+                <div class="valid-feedback"></div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Password <span class="required">*</span></label>
+                <div class="input-group">
+                    <input type="password" class="form-control" id="password" name="password" required>
+                    <span class="input-group-text" id="togglePassword">
+                        <i class="fas fa-eye"></i>
+                    </span>
+                </div>
+                <div class="password-strength" id="passwordStrength"></div>
+                <div class="invalid-feedback"></div>
+                <div class="valid-feedback"></div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Confirm Password <span class="required">*</span></label>
+                <div class="input-group">
+                    <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" required>
+                    <span class="input-group-text" id="toggleConfirmPassword">
+                        <i class="fas fa-eye"></i>
+                    </span>
+                </div>
+                <div class="invalid-feedback"></div>
+                <div class="valid-feedback"></div>
+            </div>
+
+            <div class="form-group">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="agreeTerms" name="agreeTerms" required>
+                    <label class="form-check-label" for="agreeTerms">
+                        I agree to the <a href="#" target="_blank">Terms of Service</a> and <a href="#" target="_blank">Privacy Policy</a>
+                    </label>
+                    <div class="invalid-feedback"></div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="newsletter" name="newsletter">
+                    <label class="form-check-label" for="newsletter">
+                        Subscribe to our newsletter for updates and promotions
+                    </label>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="registerBtn">
+                <span class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin"></i>
+                </span>
+                Create Account
+            </button>
+        </form>
+
+        <div class="auth-links">
+            <p>Already have an account? <a href="login.html">Sign in here</a></p>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container position-fixed top-0 end-0 p-3">
+        <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong class="me-auto">Notification</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="toastMessage"></div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        $(document).ready(function() {
+            // Password visibility toggle
+            $('#togglePassword').click(function() {
+                const passwordField = $('#password');
+                const icon = $(this).find('i');
+                
+                if (passwordField.attr('type') === 'password') {
+                    passwordField.attr('type', 'text');
+                    icon.removeClass('fa-eye').addClass('fa-eye-slash');
+                } else {
+                    passwordField.attr('type', 'password');
+                    icon.removeClass('fa-eye-slash').addClass('fa-eye');
+                }
+            });
+
+            $('#toggleConfirmPassword').click(function() {
+                const confirmPasswordField = $('#confirmPassword');
+                const icon = $(this).find('i');
+                
+                if (confirmPasswordField.attr('type') === 'password') {
+                    confirmPasswordField.attr('type', 'text');
+                    icon.removeClass('fa-eye').addClass('fa-eye-slash');
+                } else {
+                    confirmPasswordField.attr('type', 'password');
+                    icon.removeClass('fa-eye-slash').addClass('fa-eye');
+                }
+            });
+
+            // Password strength checker
+            $('#password').on('input', function() {
+                const password = $(this).val();
+                const strength = checkPasswordStrength(password);
+                const strengthDiv = $('#passwordStrength');
+                
+                strengthDiv.removeClass('strength-weak strength-medium strength-strong');
+                
+                if (password.length > 0) {
+                    if (strength.score < 3) {
+                        strengthDiv.addClass('strength-weak').text('Weak password');
+                    } else if (strength.score < 5) {
+                        strengthDiv.addClass('strength-medium').text('Medium password');
+                    } else {
+                        strengthDiv.addClass('strength-strong').text('Strong password');
+                    }
+                } else {
+                    strengthDiv.text('');
+                }
+            });
+
+            // Email validation
+            $('#email').on('blur', function() {
+                const email = $(this).val();
+                if (email) {
+                    checkEmailAvailability(email);
+                }
+            });
+
+            // Real-time validation
+            $('#fullName').on('input', function() {
+                validateFullName($(this));
+            });
+
+            $('#email').on('input', function() {
+                validateEmail($(this));
+            });
+
+            $('#phone').on('input', function() {
+                validatePhone($(this));
+            });
+
+            $('#password').on('input', function() {
+                validatePassword($(this));
+                if ($('#confirmPassword').val()) {
+                    validateConfirmPassword($('#confirmPassword'));
+                }
+            });
+
+            $('#confirmPassword').on('input', function() {
+                validateConfirmPassword($(this));
+            });
+
+            // Form submission
+            $('#registerForm').on('submit', function(e) {
+                e.preventDefault();
+                
+                if (validateForm()) {
+                    registerUser();
+                }
+            });
+        });
+
+        function validateForm() {
+            let isValid = true;
+            
+            isValid = validateFullName($('#fullName')) && isValid;
+            isValid = validateEmail($('#email')) && isValid;
+            isValid = validatePhone($('#phone')) && isValid;
+            isValid = validatePassword($('#password')) && isValid;
+            isValid = validateConfirmPassword($('#confirmPassword')) && isValid;
+            isValid = validateTerms($('#agreeTerms')) && isValid;
+            
+            return isValid;
+        }
+
+        function validateFullName(field) {
+            const value = field.val().trim();
+            
+            if (!value) {
+                showFieldError(field, 'Full name is required');
+                return false;
+            }
+            
+            if (value.length < 2) {
+                showFieldError(field, 'Full name must be at least 2 characters');
+                return false;
+            }
+            
+            if (!/^[a-zA-Z\s'.-]+$/.test(value)) {
+                showFieldError(field, 'Full name contains invalid characters');
+                return false;
+            }
+            
+            showFieldSuccess(field);
+            return true;
+        }
+
+        function validateEmail(field) {
+            const value = field.val().trim();
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            
+            if (!value) {
+                showFieldError(field, 'Email is required');
+                return false;
+            }
+            
+            if (!emailRegex.test(value)) {
+                showFieldError(field, 'Please enter a valid email address');
+                return false;
+            }
+            
+            showFieldSuccess(field);
+            return true;
+        }
+
+        function validatePhone(field) {
+            const value = field.val().trim();
+            
+            if (value && !/^[\+]?[\d\s\-\(\)]+$/.test(value)) {
+                showFieldError(field, 'Please enter a valid phone number');
+                return false;
+            }
+            
+            if (value && value.replace(/\D/g, '').length < 10) {
+                showFieldError(field, 'Phone number must be at least 10 digits');
+                return false;
+            }
+            
+            showFieldSuccess(field);
+            return true;
+        }
+
+        function validatePassword(field) {
+            const value = field.val();
+            
+            if (!value) {
+                showFieldError(field, 'Password is required');
+                return false;
+            }
+            
+            if (value.length < 8) {
+                showFieldError(field, 'Password must be at least 8 characters');
+                return false;
+            }
+            
+            const strength = checkPasswordStrength(value);
+            if (strength.score < 3) {
+                showFieldError(field, 'Password is too weak. Use uppercase, lowercase, numbers, and symbols');
+                return false;
+            }
+            
+            showFieldSuccess(field);
+            return true;
+        }
+
+        function validateConfirmPassword(field) {
+            const value = field.val();
+            const password = $('#password').val();
+            
+            if (!value) {
+                showFieldError(field, 'Please confirm your password');
+                return false;
+            }
+            
+            if (value !== password) {
+                showFieldError(field, 'Passwords do not match');
+                return false;
+            }
+            
+            showFieldSuccess(field);
+            return true;
+        }
+
+        function validateTerms(field) {
+            if (!field.is(':checked')) {
+                showFieldError(field, 'You must agree to the terms and conditions');
+                return false;
+            }
+            
+            showFieldSuccess(field);
+            return true;
+        }
+
+        function showFieldError(field, message) {
+            field.removeClass('is-valid').addClass('is-invalid');
+            field.siblings('.invalid-feedback').text(message);
+            field.siblings('.valid-feedback').text('');
+        }
+
+        function showFieldSuccess(field) {
+            field.removeClass('is-invalid').addClass('is-valid');
+            field.siblings('.invalid-feedback').text('');
+            field.siblings('.valid-feedback').text('✓');
+        }
+
+        function checkPasswordStrength(password) {
+            let score = 0;
+            
+            if (password.length >= 8) score++;
+            if (password.length >= 12) score++;
+            if (/[a-z]/.test(password)) score++;
+            if (/[A-Z]/.test(password)) score++;
+            if (/[0-9]/.test(password)) score++;
+            if (/[^A-Za-z0-9]/.test(password)) score++;
+            
+            return { score: score };
+        }
+
+        function checkEmailAvailability(email) {
+            $.ajax({
+                url: '/api/auth/check-email',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ email: email }),
+                success: function(response) {
+                    if (response.success && response.available) {
+                        $('#email').siblings('.valid-feedback').text('✓ Email available');
+                        showFieldSuccess($('#email'));
+                    } else {
+                        showFieldError($('#email'), 'Email is already registered');
+                    }
+                },
+                error: function() {
+                    // Don't show error for email check failure - just don't show validation
+                    showFieldSuccess($('#email'));
+                }
+            });
+        }
+
+        function registerUser() {
+            const registerBtn = $('#registerBtn');
+            const spinner = registerBtn.find('.loading-spinner');
+            
+            // Show loading state
+            registerBtn.prop('disabled', true);
+            spinner.show();
+            
+            const formData = {
+                name: $('#fullName').val().trim(),
+                email: $('#email').val().trim(),
+                phone: $('#phone').val().trim(),
+                address: $('#address').val().trim(),
+                password: $('#password').val(),
+                newsletter: $('#newsletter').is(':checked')
+            };
+            
+            $.ajax({
+                url: '/api/auth/register',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(formData),
+                success: function(response) {
+                    if (response.success) {
+                        showToast('Registration successful! Welcome to ThreadedTreasure!', 'success');
+                        
+                        // Store token for immediate login
+                        if (response.data && response.data.token) {
+                            localStorage.setItem('userToken', response.data.token);
+                            localStorage.setItem('userData', JSON.stringify(response.data.user));
+                        }
+                        
+                        // Redirect to shop page after 2 seconds
+                        setTimeout(function() {
+                            window.location.href = 'shop.html';
+                        }, 2000);
+                    } else {
+                        showToast(response.message || 'Registration failed. Please try again.', 'error');
+                    }
+                },
+                error: function(xhr) {
+                    const response = xhr.responseJSON;
+                    if (response && response.message) {
+                        showToast(response.message, 'error');
+                    } else {
+                        showToast('Registration failed. Please try again.', 'error');
+                    }
+                },
+                complete: function() {
+                    registerBtn.prop('disabled', false);
+                    spinner.hide();
+                }
+            });
+        }
+
+        function showToast(message, type = 'info') {
+            const toastEl = $('#toast');
+            const toastBody = $('#toastMessage');
+            
+            toastBody.text(message);
+            
+            // Update toast style based on type
+            toastEl.removeClass('bg-danger bg-success bg-warning bg-primary text-white');
+            
+            if (type === 'error') {
+                toastEl.addClass('bg-danger text-white');
+            } else if (type === 'success') {
+                toastEl.addClass('bg-success text-white');
+            } else if (type === 'warning') {
+                toastEl.addClass('bg-warning');
+            } else {
+                toastEl.addClass('bg-primary text-white');
+            }
+            
+            const toast = new bootstrap.Toast(toastEl[0]);
+            toast.show();
+        }
+    </script>
+</body>
+</html>

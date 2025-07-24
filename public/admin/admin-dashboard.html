@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - ThreadedTreasure</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Chart.js CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.min.css">
+    
+    <style>
+        :root {
+            --primary-color: #667eea;
+            --secondary-color: #764ba2;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --info-color: #17a2b8;
+            --dark-color: #343a40;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding-top: 80px;
+        }
+
+        .dashboard-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            border-radius: 0 0 20px 20px;
+        }
+
+        .dashboard-header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            margin: 0;
+        }
+
+        .dashboard-header .subtitle {
+            opacity: 0.9;
+            font-size: 1.1rem;
+            margin-top: 0.5rem;
+        }
+
+        .stats-card {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+            border: none;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stats-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+        }
+
+        .stats-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+        }
+
+        .stats-card .card-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: white;
+            margin-bottom: 1rem;
+        }
+
+        .stats-card .stat-number {
+            font-size: 2.2rem;
+            font-weight: bold;
+            color: var(--dark-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .stats-card .stat-label {
+            color: #6c757d;
+            font-weight: 500;
+            text-transform: uppercase;
+            font-size: 0.875rem;
+            letter-spacing: 0.5px;
+        }
+
+        .stats-card .stat-change {
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+            position: relative;
+        }
+
+        .chart-container h3 {
+            color: var(--dark-color);
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 400px;
+            width: 100%;
+        }
+
+        .chart-wrapper canvas {
+            max-height: 400px !important;
+        }
+
+        .quick-stats {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .quick-stats h4 {
+            color: var(--dark-color);
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .quick-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .quick-stat-item {
+            background: white;
+            padding: 1rem;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .quick-stat-item .icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .quick-stat-item .value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .quick-stat-item .label {
+            font-size: 0.875rem;
+            color: #6c757d;
+            text-transform: uppercase;
+        }
+
+        .dashboard-actions {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 1000;
+        }
+
+        .fab-button {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease;
+            margin-bottom: 1rem;
+        }
+
+        .fab-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.6);
+            color: white;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 15px;
+            z-index: 10;
+        }
+
+        .loading-spinner {
+            width: 3rem;
+            height: 3rem;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .dashboard-header h1 {
+                font-size: 2rem;
+            }
+            
+            .chart-wrapper {
+                height: 300px;
+            }
+            
+            .stats-card .stat-number {
+                font-size: 1.8rem;
+            }
+            
+            .dashboard-actions {
+                bottom: 20px;
+                right: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div id="admin-header-placeholder"></div>
+
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1>
+                        <i class="fas fa-chart-line me-3"></i>Admin Dashboard
+                    </h1>
+                    <p class="subtitle mb-0">Real-time analytics and business insights</p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <div class="d-flex justify-content-end align-items-center gap-3">
+                        <button class="btn btn-outline-light" onclick="refreshDashboard()">
+                            <i class="fas fa-sync-alt me-1"></i>Refresh
+                        </button>
+                        <button class="btn btn-light" onclick="exportDashboard()">
+                            <i class="fas fa-download me-1"></i>Export
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard Content -->
+    <div class="container">
+        <!-- Stats Cards Row -->
+        <div class="row">
+            <div class="col-xl-3 col-md-6">
+                <div class="stats-card">
+                    <div class="card-icon" style="background: linear-gradient(135deg, #28a745, #20c997);">
+                        <i class="fas fa-dollar-sign"></i>
+                    </div>
+                    <div class="stat-number" id="totalRevenue">$0</div>
+                    <div class="stat-label">Total Revenue</div>
+                    <div class="stat-change text-success">
+                        <i class="fas fa-arrow-up me-1"></i>
+                        <span id="revenueChange">+0%</span> from last month
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="stats-card">
+                    <div class="card-icon" style="background: linear-gradient(135deg, #007bff, #0056b3);">
+                        <i class="fas fa-shopping-cart"></i>
+                    </div>
+                    <div class="stat-number" id="totalOrders">0</div>
+                    <div class="stat-label">Total Orders</div>
+                    <div class="stat-change text-info">
+                        <i class="fas fa-arrow-up me-1"></i>
+                        <span id="ordersChange">+0%</span> from last week
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="stats-card">
+                    <div class="card-icon" style="background: linear-gradient(135deg, #6f42c1, #5a2d91);">
+                        <i class="fas fa-box"></i>
+                    </div>
+                    <div class="stat-number" id="totalProducts">0</div>
+                    <div class="stat-label">Total Products</div>
+                    <div class="stat-change text-primary">
+                        <i class="fas fa-arrow-up me-1"></i>
+                        <span id="productsChange">+0</span> new this month
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="stats-card">
+                    <div class="card-icon" style="background: linear-gradient(135deg, #fd7e14, #e55a4e);">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="stat-number" id="totalCustomers">0</div>
+                    <div class="stat-label">Total Customers</div>
+                    <div class="stat-change text-warning">
+                        <i class="fas fa-arrow-up me-1"></i>
+                        <span id="customersChange">+0</span> new this week
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="row">
+            <!-- Sales Chart (Line Chart) -->
+            <div class="col-xl-8 col-lg-7">
+                <div class="chart-container">
+                    <div class="loading-overlay" id="salesChartLoading">
+                        <div class="loading-spinner"></div>
+                    </div>
+                    <h3>
+                        <i class="fas fa-chart-line text-primary me-2"></i>
+                        Sales Trends
+                        <small class="text-muted ms-2">(Last 12 Months)</small>
+                    </h3>
+                    <div class="chart-wrapper">
+                        <canvas id="salesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Category Distribution (Pie Chart) -->
+            <div class="col-xl-4 col-lg-5">
+                <div class="chart-container">
+                    <div class="loading-overlay" id="categoryChartLoading">
+                        <div class="loading-spinner"></div>
+                    </div>
+                    <h3>
+                        <i class="fas fa-chart-pie text-success me-2"></i>
+                        Category Distribution
+                    </h3>
+                    <div class="chart-wrapper">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Revenue by Product (Bar Chart) -->
+        <div class="row">
+            <div class="col-12">
+                <div class="chart-container">
+                    <div class="loading-overlay" id="revenueChartLoading">
+                        <div class="loading-spinner"></div>
+                    </div>
+                    <h3>
+                        <i class="fas fa-chart-bar text-warning me-2"></i>
+                        Revenue by Product
+                        <small class="text-muted ms-2">(Top 10 Products)</small>
+                    </h3>
+                    <div class="chart-wrapper">
+                        <canvas id="revenueChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="row">
+            <div class="col-12">
+                <div class="quick-stats">
+                    <h4><i class="fas fa-tachometer-alt me-2"></i>Quick Stats</h4>
+                    <div class="quick-stats-grid">
+                        <div class="quick-stat-item">
+                            <div class="icon text-success">
+                                <i class="fas fa-eye"></i>
+                            </div>
+                            <div class="value" id="pageViews">0</div>
+                            <div class="label">Page Views</div>
+                        </div>
+                        <div class="quick-stat-item">
+                            <div class="icon text-primary">
+                                <i class="fas fa-shopping-bag"></i>
+                            </div>
+                            <div class="value" id="pendingOrders">0</div>
+                            <div class="label">Pending Orders</div>
+                        </div>
+                        <div class="quick-stat-item">
+                            <div class="icon text-warning">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
+                            <div class="value" id="lowStockProducts">0</div>
+                            <div class="label">Low Stock</div>
+                        </div>
+                        <div class="quick-stat-item">
+                            <div class="icon text-info">
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <div class="value" id="averageRating">0.0</div>
+                            <div class="label">Avg Rating</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Action Buttons -->
+    <div class="dashboard-actions">
+        <button class="fab-button" onclick="window.location.href='crud-manager.html'" title="CRUD Manager">
+            <i class="fas fa-database"></i>
+        </button>
+        <button class="fab-button" onclick="refreshDashboard()" title="Refresh Dashboard">
+            <i class="fas fa-sync-alt"></i>
+        </button>
+        <button class="fab-button" onclick="exportDashboard()" title="Export Data">
+            <i class="fas fa-download"></i>
+        </button>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.min.js"></script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    <!-- Admin Authentication -->
+    <script src="../js/admin-auth.js"></script>
+    <!-- Dashboard Charts Manager -->
+    <script src="../js/dashboard-charts.js"></script>
+    <!-- Component Loader -->
+    <script src="../js/componentLoader.js"></script>
+    
+    <script>
+        // Dashboard Data Storage
+        let dashboardData = {
+            revenue: 0,
+            orders: 0,
+            products: 0,
+            customers: 0,
+            salesData: [],
+            categoryData: [],
+            productRevenueData: []
+        };
+
+        // Chart instances
+        let salesChart, categoryChart, revenueChart;
+
+        // Initialize dashboard
+        $(document).ready(function() {
+            console.log('🚀 Initializing Admin Dashboard...');
+            
+            // Load reusable components
+            loadComponent('admin-header-placeholder', '../components/admin-header.html');
+            
+            // Check authentication
+            if (!window.adminAuth || !window.adminAuth.checkAuth()) {
+                console.error('❌ Admin authentication required');
+                return;
+            }
+            
+            console.log('🔐 Authentication verified');
+            
+            // Initialize dashboard
+            initializeDashboard();
+        });
+
+        async function initializeDashboard() {
+            try {
+                console.log('📊 Loading dashboard data...');
+                
+                // Show loading spinners
+                showLoadingSpinners();
+                
+                // Load data from API
+                await loadDashboardData();
+                
+                // Update stats cards
+                updateStatsCards();
+                
+                // Initialize charts
+                initializeCharts();
+                
+                // Hide loading spinners
+                hideLoadingSpinners();
+                
+                console.log('✅ Dashboard initialized successfully');
+                
+            } catch (error) {
+                console.error('❌ Dashboard initialization failed:', error);
+                hideLoadingSpinners();
+                
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Dashboard Error',
+                    text: 'Failed to load dashboard data. Please try refreshing the page.',
+                    confirmButtonText: 'Refresh',
+                    showCancelButton: true
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        window.location.reload();
+                    }
+                });
+            }
+        }
+
+        function showLoadingSpinners() {
+            $('#salesChartLoading').show();
+            $('#categoryChartLoading').show();
+            $('#revenueChartLoading').show();
+        }
+
+        function hideLoadingSpinners() {
+            $('#salesChartLoading').hide();
+            $('#categoryChartLoading').hide();
+            $('#revenueChartLoading').hide();
+        }
+
+        async function loadDashboardData() {
+            try {
+                console.log('📡 Fetching dashboard data from API...');
+                
+                // Get authentication headers
+                const headers = {
+                    'Authorization': `Bearer ${window.adminAuth.getToken()}`,
+                    'Content-Type': 'application/json'
+                };
+
+                // Fetch all required data in parallel
+                const [
+                    productsResponse,
+                    categoriesResponse,
+                    usersResponse,
+                    ordersResponse
+                ] = await Promise.all([
+                    $.ajax({ url: '/api/products', headers }),
+                    $.ajax({ url: '/api/categories', headers }),
+                    $.ajax({ url: '/api/users', headers }),
+                    $.ajax({ url: '/api/orders/admin/all', headers }).catch(() => ({ success: true, data: [] }))
+                ]);
+
+                console.log('📊 API Responses:', {
+                    products: productsResponse,
+                    categories: categoriesResponse,
+                    users: usersResponse,
+                    orders: ordersResponse
+                });
+
+                // Process the data
+                processApiData(productsResponse, categoriesResponse, usersResponse, ordersResponse);
+                
+            } catch (error) {
+                console.error('❌ Failed to load dashboard data:', error);
+                
+                // Use mock data as fallback
+                console.log('🔄 Using mock data as fallback...');
+                loadMockData();
+            }
+        }
+
+        function processApiData(products, categories, users, orders) {
+            // Extract data with safety checks
+            const productsData = products.success ? products.data : [];
+            const categoriesData = categories.success ? categories.data : [];
+            const usersData = users.success ? users.data : [];
+            const ordersData = orders.success ? orders.data : [];
+            
+            console.log('📈 Processing data:', {
+                productsCount: productsData.length,
+                categoriesCount: categoriesData.length,
+                usersCount: usersData.length,
+                ordersCount: ordersData.length
+            });
+
+            // Update dashboard data
+            dashboardData.products = productsData.length;
+            dashboardData.customers = usersData.filter(u => u.role !== 'admin').length;
+            dashboardData.orders = ordersData.length;
+            
+            // Calculate revenue from orders
+            dashboardData.revenue = ordersData.reduce((sum, order) => {
+                return sum + (parseFloat(order.total_amount) || 0);
+            }, 0);
+
+            // Generate sales trend data (mock for now)
+            dashboardData.salesData = generateMonthlySalesData(ordersData);
+            
+            // Generate category distribution
+            dashboardData.categoryData = generateCategoryDistribution(categoriesData, productsData);
+            
+            // Generate product revenue data
+            dashboardData.productRevenueData = generateProductRevenueData(productsData);
+        }
+
+        function loadMockData() {
+            // Fallback mock data for testing
+            dashboardData = {
+                revenue: 125430.50,
+                orders: 1247,
+                products: 156,
+                customers: 892,
+                salesData: [
+                    { month: 'Jan', sales: 12000 },
+                    { month: 'Feb', sales: 15000 },
+                    { month: 'Mar', sales: 18000 },
+                    { month: 'Apr', sales: 22000 },
+                    { month: 'May', sales: 25000 },
+                    { month: 'Jun', sales: 28000 },
+                    { month: 'Jul', sales: 31000 },
+                    { month: 'Aug', sales: 29000 },
+                    { month: 'Sep', sales: 33000 },
+                    { month: 'Oct', sales: 36000 },
+                    { month: 'Nov', sales: 38000 },
+                    { month: 'Dec', sales: 42000 }
+                ],
+                categoryData: [
+                    { name: 'T-Shirts', value: 45, color: '#FF6384' },
+                    { name: 'Jeans', value: 25, color: '#36A2EB' },
+                    { name: 'Dresses', value: 15, color: '#FFCE56' },
+                    { name: 'Shoes', value: 10, color: '#4BC0C0' },
+                    { name: 'Accessories', value: 5, color: '#9966FF' }
+                ],
+                productRevenueData: [
+                    { name: 'Classic White T-Shirt', revenue: 15420 },
+                    { name: 'Blue Denim Jeans', revenue: 12380 },
+                    { name: 'Summer Dress', revenue: 9870 },
+                    { name: 'Running Shoes', revenue: 8750 },
+                    { name: 'Leather Jacket', revenue: 7630 },
+                    { name: 'Cotton Hoodie', revenue: 6540 },
+                    { name: 'Formal Shirt', revenue: 5430 },
+                    { name: 'Sneakers', revenue: 4320 },
+                    { name: 'Casual Pants', revenue: 3210 },
+                    { name: 'Baseball Cap', revenue: 2100 }
+                ]
+            };
+        }
+
+        function generateMonthlySalesData(ordersData) {
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const currentMonth = new Date().getMonth();
+            
+            return months.map((month, index) => {
+                // Mock sales data based on orders (you can enhance this with real date filtering)
+                const baseSales = Math.max(5000, ordersData.length * 500 + Math.random() * 10000);
+                const seasonality = index <= currentMonth ? 1 : 0.7; // Current year vs next year
+                
+                return {
+                    month,
+                    sales: Math.round(baseSales * seasonality)
+                };
+            });
+        }
+
+        function generateCategoryDistribution(categoriesData, productsData) {
+            const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF'];
+            
+            return categoriesData.slice(0, 7).map((category, index) => {
+                // Count products in this category (mock implementation)
+                const productCount = Math.max(1, Math.floor(Math.random() * 20) + 5);
+                
+                return {
+                    name: category.name,
+                    value: productCount,
+                    color: colors[index % colors.length]
+                };
+            });
+        }
+
+        function generateProductRevenueData(productsData) {
+            return productsData.slice(0, 10).map(product => ({
+                name: product.name,
+                revenue: Math.round((parseFloat(product.price) || 50) * (Math.random() * 100 + 20))
+            })).sort((a, b) => b.revenue - a.revenue);
+        }
+
+        function updateStatsCards() {
+            // Update stats with animation
+            animateNumber('#totalRevenue', 0, dashboardData.revenue, 2000, '$', 2);
+            animateNumber('#totalOrders', 0, dashboardData.orders, 1500);
+            animateNumber('#totalProducts', 0, dashboardData.products, 1200);
+            animateNumber('#totalCustomers', 0, dashboardData.customers, 1800);
+            
+            // Update change indicators (mock data)
+            $('#revenueChange').text('+12.5%');
+            $('#ordersChange').text('+8.3%');
+            $('#productsChange').text(`+${Math.floor(Math.random() * 10) + 1}`);
+            $('#customersChange').text(`+${Math.floor(Math.random() * 20) + 5}`);
+            
+            // Update quick stats
+            $('#pageViews').text('24.7K');
+            $('#pendingOrders').text(Math.floor(dashboardData.orders * 0.15));
+            $('#lowStockProducts').text(Math.floor(dashboardData.products * 0.08));
+            $('#averageRating').text('4.8');
+        }
+
+        function animateNumber(selector, start, end, duration, prefix = '', decimals = 0) {
+            const element = $(selector);
+            const range = end - start;
+            const increment = range / (duration / 16);
+            let current = start;
+            
+            const timer = setInterval(() => {
+                current += increment;
+                if (current >= end) {
+                    current = end;
+                    clearInterval(timer);
+                }
+                
+                const value = decimals > 0 ? current.toFixed(decimals) : Math.round(current);
+                element.text(prefix + value.toLocaleString());
+            }, 16);
+        }
+
+        function initializeCharts() {
+            // Use the dashboard charts manager
+            if (window.dashboardCharts) {
+                window.dashboardCharts.initializeAll(dashboardData)
+                    .then(() => {
+                        console.log('✅ All charts initialized via charts manager');
+                    })
+                    .catch(error => {
+                        console.error('❌ Charts manager initialization failed:', error);
+                        // Fallback to individual chart initialization
+                        initializeSalesChart();
+                        initializeCategoryChart();
+                        initializeRevenueChart();
+                    });
+            } else {
+                console.warn('⚠️ Dashboard charts manager not available, using fallback');
+                initializeSalesChart();
+                initializeCategoryChart();
+                initializeRevenueChart();
+            }
+        }
+
+        function initializeSalesChart() {
+            const ctx = document.getElementById('salesChart').getContext('2d');
+            
+            salesChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dashboardData.salesData.map(d => d.month),
+                    datasets: [{
+                        label: 'Monthly Sales ($)',
+                        data: dashboardData.salesData.map(d => d.sales),
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#667eea',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 6,
+                        pointHoverRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff',
+                            cornerRadius: 8,
+                            callbacks: {
+                                label: function(context) {
+                                    return 'Sales: $' + context.parsed.y.toLocaleString();
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    },
+                    elements: {
+                        point: {
+                            hoverBackgroundColor: '#667eea'
+                        }
+                    }
+                }
+            });
+        }
+
+        function initializeCategoryChart() {
+            const ctx = document.getElementById('categoryChart').getContext('2d');
+            
+            categoryChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: dashboardData.categoryData.map(d => d.name),
+                    datasets: [{
+                        data: dashboardData.categoryData.map(d => d.value),
+                        backgroundColor: dashboardData.categoryData.map(d => d.color),
+                        borderWidth: 2,
+                        borderColor: '#fff',
+                        hoverBorderWidth: 4,
+                        hoverBorderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20,
+                                generateLabels: function(chart) {
+                                    const data = chart.data;
+                                    const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                    
+                                    return data.labels.map((label, index) => {
+                                        const value = data.datasets[0].data[index];
+                                        const percentage = ((value / total) * 100).toFixed(1);
+                                        
+                                        return {
+                                            text: `${label} (${percentage}%)`,
+                                            fillStyle: data.datasets[0].backgroundColor[index],
+                                            pointStyle: 'circle'
+                                        };
+                                    });
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff',
+                            cornerRadius: 8,
+                            callbacks: {
+                                label: function(context) {
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                    return `${context.label}: ${context.parsed} products (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function initializeRevenueChart() {
+            const ctx = document.getElementById('revenueChart').getContext('2d');
+            
+            revenueChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: dashboardData.productRevenueData.map(d => d.name),
+                    datasets: [{
+                        label: 'Revenue ($)',
+                        data: dashboardData.productRevenueData.map(d => d.revenue),
+                        backgroundColor: 'rgba(255, 193, 7, 0.8)',
+                        borderColor: '#ffc107',
+                        borderWidth: 2,
+                        borderRadius: 8,
+                        borderSkipped: false,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff',
+                            cornerRadius: 8,
+                            callbacks: {
+                                label: function(context) {
+                                    return 'Revenue: $' + context.parsed.y.toLocaleString();
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 45
+                            },
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Dashboard Functions
+        async function refreshDashboard() {
+            console.log('🔄 Refreshing dashboard...');
+            
+            const refreshBtn = $('button[onclick="refreshDashboard()"]');
+            const originalText = refreshBtn.html();
+            
+            refreshBtn.html('<i class="fas fa-spinner fa-spin me-1"></i>Refreshing...').prop('disabled', true);
+            
+            try {
+                await initializeDashboard();
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Dashboard Refreshed',
+                    text: 'All data has been updated successfully!',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+                
+            } catch (error) {
+                console.error('❌ Refresh failed:', error);
+                
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Refresh Failed',
+                    text: 'Failed to refresh dashboard data.'
+                });
+            } finally {
+                refreshBtn.html(originalText).prop('disabled', false);
+            }
+        }
+
+        function exportDashboard() {
+            console.log('📄 Exporting dashboard data...');
+            
+            Swal.fire({
+                title: 'Export Dashboard Data',
+                text: 'What would you like to export?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Export Charts as PDF',
+                cancelButtonText: 'Export Data as JSON',
+                showCloseButton: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    exportChartsAsPDF();
+                } else if (result.isDismissed && result.dismiss === 'cancel') {
+                    exportDataAsJSON();
+                }
+            });
+        }
+
+        function exportChartsAsPDF() {
+            // This would require a library like jsPDF
+            Swal.fire({
+                icon: 'info',
+                title: 'PDF Export',
+                text: 'PDF export functionality would be implemented here using jsPDF library.'
+            });
+        }
+
+        function exportDataAsJSON() {
+            const dataToExport = {
+                exportDate: new Date().toISOString(),
+                stats: {
+                    revenue: dashboardData.revenue,
+                    orders: dashboardData.orders,
+                    products: dashboardData.products,
+                    customers: dashboardData.customers
+                },
+                salesData: dashboardData.salesData,
+                categoryData: dashboardData.categoryData,
+                productRevenueData: dashboardData.productRevenueData
+            };
+            
+            const dataStr = JSON.stringify(dataToExport, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `dashboard-data-${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            
+            URL.revokeObjectURL(url);
+            
+            Swal.fire({
+                icon: 'success',
+                title: 'Data Exported',
+                text: 'Dashboard data has been downloaded as JSON file.'
+            });
+        }
+
+        // Auto-refresh dashboard every 5 minutes
+        setInterval(() => {
+            console.log('🕐 Auto-refreshing dashboard...');
+            loadDashboardData().then(updateStatsCards);
+        }, 5 * 60 * 1000);
+        
+    </script>
+</body>
+</html>

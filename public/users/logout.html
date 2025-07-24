@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logout - ThreadedTreasure</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #667eea;
+            --secondary-color: #764ba2;
+            --success-color: #28a745;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .logout-container {
+            background: white;
+            padding: 50px 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+        }
+
+        .logout-icon {
+            font-size: 4rem;
+            color: var(--success-color);
+            margin-bottom: 20px;
+            animation: checkmark 0.6s ease-in-out;
+        }
+
+        @keyframes checkmark {
+            0% {
+                transform: scale(0);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.2);
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .logout-header h1 {
+            color: var(--success-color);
+            font-weight: 700;
+            margin-bottom: 15px;
+            font-size: 2rem;
+        }
+
+        .logout-header p {
+            color: #6c757d;
+            margin-bottom: 30px;
+            font-size: 1.1rem;
+        }
+
+        .btn-group-logout {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border: none;
+            border-radius: 12px;
+            padding: 12px 25px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            flex: 1;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-outline-primary {
+            border: 2px solid var(--primary-color);
+            color: var(--primary-color);
+            border-radius: 12px;
+            padding: 12px 25px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            flex: 1;
+            background: white;
+        }
+
+        .btn-outline-primary:hover {
+            background: var(--primary-color);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .divider {
+            margin: 25px 0;
+            position: relative;
+        }
+
+        .divider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #e9ecef;
+        }
+
+        .divider span {
+            background: white;
+            padding: 0 15px;
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        .quick-actions {
+            margin-top: 20px;
+        }
+
+        .quick-actions a {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 500;
+            padding: 8px 15px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+
+        .quick-actions a:hover {
+            background: #f8f9ff;
+            color: var(--secondary-color);
+            text-decoration: none;
+        }
+
+        .user-info {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 25px;
+            border-left: 4px solid var(--success-color);
+        }
+
+        .user-info .user-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .user-info .user-email {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        .loading {
+            display: none;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .loading-text {
+            color: #6c757d;
+            margin-top: 15px;
+            font-style: italic;
+        }
+
+        @media (max-width: 480px) {
+            .logout-container {
+                padding: 40px 25px;
+            }
+
+            .btn-group-logout {
+                flex-direction: column;
+            }
+
+            .logout-icon {
+                font-size: 3rem;
+            }
+
+            .logout-header h1 {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="logout-container">
+        <!-- Loading State -->
+        <div class="loading" id="loadingState">
+            <div class="logout-icon">
+                <i class="fas fa-spinner fa-spin"></i>
+            </div>
+            <div class="logout-header">
+                <h1>Signing Out...</h1>
+                <p>Please wait while we securely log you out</p>
+            </div>
+            <div class="loading-text">This should only take a moment</div>
+        </div>
+
+        <!-- Success State -->
+        <div id="successState" style="display: none;">
+            <div class="logout-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            
+            <div class="logout-header">
+                <h1>Successfully Logged Out</h1>
+                <p>You have been securely signed out of your account</p>
+            </div>
+
+            <!-- User Info (if available) -->
+            <div class="user-info" id="userInfo" style="display: none;">
+                <div class="user-name" id="userName"></div>
+                <div class="user-email" id="userEmail"></div>
+                <small class="text-muted">Thanks for using ThreadedTreasure!</small>
+            </div>
+
+            <div class="btn-group-logout">
+                <button type="button" class="btn btn-primary" onclick="window.location.href='login.html'">
+                    <i class="fas fa-sign-in-alt me-2"></i>
+                    Sign In Again
+                </button>
+                <button type="button" class="btn btn-outline-primary" onclick="window.location.href='../shop.html'">
+                    <i class="fas fa-shopping-bag me-2"></i>
+                    Continue Shopping
+                </button>
+            </div>
+
+            <div class="divider">
+                <span>or</span>
+            </div>
+
+            <div class="quick-actions">
+                <a href="register.html">
+                    <i class="fas fa-user-plus"></i>
+                    Create New Account
+                </a>
+                <a href="../shop.html">
+                    <i class="fas fa-home"></i>
+                    Go to Homepage
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        $(document).ready(function() {
+            performLogout();
+        });
+
+        function performLogout() {
+            // Get user data before clearing it
+            const userData = localStorage.getItem('userData');
+            const userToken = localStorage.getItem('userToken');
+            
+            if (userData) {
+                try {
+                    const user = JSON.parse(userData);
+                    $('#userName').text(user.name);
+                    $('#userEmail').text(user.email);
+                    $('#userInfo').show();
+                } catch (error) {
+                    console.error('Error parsing user data:', error);
+                }
+            }
+
+            // Show loading state
+            $('#loadingState').addClass('show');
+            
+            // Make logout API call if token exists
+            if (userToken) {
+                $.ajax({
+                    url: '/api/auth/logout',
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${userToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    success: function(response) {
+                        console.log('Server logout successful:', response);
+                    },
+                    error: function(xhr, status, error) {
+                        console.log('Server logout error (continuing anyway):', error);
+                    },
+                    complete: function() {
+                        completeLogout();
+                    }
+                });
+            } else {
+                // No token, just clear local storage
+                setTimeout(completeLogout, 1500);
+            }
+        }
+
+        function completeLogout() {
+            // Clear all authentication data
+            localStorage.removeItem('userToken');
+            localStorage.removeItem('userData');
+            
+            // Clear cart for security (optional)
+            // localStorage.removeItem('cart');
+            
+            // Clear any other session data
+            localStorage.removeItem('adminToken');
+            localStorage.removeItem('userInfo');
+            
+            // Clear session storage too
+            sessionStorage.clear();
+            
+            // Dispatch events to notify header and other components
+            window.dispatchEvent(new CustomEvent('logoutSuccess'));
+            window.dispatchEvent(new CustomEvent('authChanged'));
+            
+            // Hide loading and show success
+            setTimeout(function() {
+                $('#loadingState').removeClass('show').hide();
+                $('#successState').show();
+                
+                // Auto-redirect after 5 seconds
+                setTimeout(function() {
+                    window.location.href = 'shop.html';
+                }, 5000);
+            }, 1000);
+        }
+
+        // Handle browser back/forward buttons
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted) {
+                // Page was loaded from cache
+                performLogout();
+            }
+        });
+
+        // Prevent going back after logout
+        window.history.pushState(null, null, window.location.href);
+        window.addEventListener('popstate', function() {
+            window.history.pushState(null, null, window.location.href);
+        });
+    </script>
+</body>
+</html>
