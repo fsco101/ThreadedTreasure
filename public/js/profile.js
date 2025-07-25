@@ -241,11 +241,17 @@ class ProfileManager {
         let profileData = Object.fromEntries(formData.entries());
         // Only keep fields that exist in the DB: name, email, phone, address
         const allowedFields = ['name', 'email', 'phone', 'address'];
+        // Always ensure all allowed fields are present and set to null if blank or undefined
+        allowedFields.forEach(field => {
+            if (!profileData[field] || profileData[field] === '' || profileData[field] === undefined) {
+                profileData[field] = null;
+            }
+        });
+
+        // Remove any extra fields
         Object.keys(profileData).forEach(key => {
             if (!allowedFields.includes(key)) {
                 delete profileData[key];
-            } else if (profileData[key] === '' || typeof profileData[key] === 'undefined') {
-                profileData[key] = null;
             }
         });
 
