@@ -68,10 +68,11 @@ class HeaderAuth {
         // Listen for login success events
         window.addEventListener('loginSuccess', (event) => {
             console.log('✅ Login success event received', event.detail);
-            setTimeout(() => {
+            // Always fetch latest token and user data from backend after login
+            this.fetchLatestTokenAndUser().then(() => {
                 this.checkAuthStatus();
                 this.updateCartCount();
-            }, 100); // Small delay to ensure localStorage is updated
+            });
         });
 
         // Listen for logout events
@@ -82,43 +83,57 @@ class HeaderAuth {
             this.updateCartCount();
         });
     }
+    // Fetch latest token and user data from backend and update localStorage
+    async fetchLatestTokenAndUser() {
+        try {
+            const response = await fetch('/api/auth/me', {
+                method: 'GET',
+                credentials: 'include',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+            if (!response.ok) throw new Error('Failed to fetch user info');
+            const data = await response.json();
+            if (data && data.user && data.token) {
+                localStorage.setItem('userToken', data.token);
+                localStorage.setItem('userData', JSON.stringify(data.user));
+                console.log('🔑 Latest token and user data updated from backend');
+            } else {
+                // If response does not contain user/token, clear auth
+                localStorage.removeItem('userToken');
+                localStorage.removeItem('userData');
+                console.warn('⚠️ Backend did not return valid user/token');
+            }
+        } catch (error) {
+            console.error('❌ Error fetching latest token/user:', error);
+            localStorage.removeItem('userToken');
+            localStorage.removeItem('userData');
+        }
+    }
 
     checkAuthStatus() {
-        console.log('🔍 Checking authentication status...');
-        
-        const token = localStorage.getItem('userToken');
+        // Only use role-based logic for menu display
         const userData = localStorage.getItem('userData');
-        
-        console.log('Token found:', !!token);
-        console.log('UserData found:', !!userData);
-        
-        // Check if both token and userData exist and are valid
-        if (token && userData && token !== 'null' && userData !== 'null' && token.trim() !== '' && userData.trim() !== '') {
+        if (userData && userData !== 'null' && userData.trim() !== '') {
             try {
                 const user = JSON.parse(userData);
-                if (user && typeof user === 'object' && (user.id || user.email)) {
-                    console.log('✅ User authenticated:', user.name || user.email);
-                    this.showAuthenticatedState(user);
+                if (user && typeof user === 'object' && user.role) {
+                    // Show admin menus if role is admin, else customer menus
+                    this.showRoleBasedState(user);
                 } else {
-                    console.log('❌ Invalid user object structure');
-                    this.cleanupInvalidAuth();
                     this.showUnauthenticatedState();
                 }
             } catch (error) {
-                console.error('❌ Error parsing user data:', error);
-                this.cleanupInvalidAuth();
                 this.showUnauthenticatedState();
             }
         } else {
-            console.log('👤 No valid authentication found');
-            this.cleanupInvalidAuth();
             this.showUnauthenticatedState();
         }
     }
 
     cleanupInvalidAuth() {
-        // Clean up any invalid tokens
-        localStorage.removeItem('userToken');
+        // Clean up any invalid user data
         localStorage.removeItem('userData');
     }
 
@@ -149,12 +164,9 @@ class HeaderAuth {
         if (typeof window.refreshUserContext === 'function') window.refreshUserContext();
     }
 
-    showAuthenticatedState(user) {
-        console.log('🔐 Showing authenticated state for:', user.name || user.email);
+    showRoleBasedState(user) {
         // Hide all nav links first
         document.querySelectorAll('.nav-links li').forEach(li => li.style.display = 'none');
-        
-        // Show common user links with null checks
         const navElements = {
             home: document.querySelector('.nav-home'),
             userDropdown: document.querySelector('.nav-user-dropdown'),
@@ -162,29 +174,24 @@ class HeaderAuth {
             profile: document.querySelector('.nav-profile'),
             logout: document.querySelector('.nav-logout')
         };
-        
-        // Always show these for authenticated users
+        // Always show home
         if (navElements.home) navElements.home.style.display = '';
-        if (navElements.userDropdown) navElements.userDropdown.style.display = '';
-        if (navElements.profile) navElements.profile.style.display = '';
-        if (navElements.logout) navElements.logout.style.display = '';
-
         // Show admin dropdown only for admin users
-        const isAdmin = user.role === 'admin' || user.is_admin === 1 || user.is_admin === '1' || user.is_admin === true;
-        if (navElements.adminDropdown) {
-            if (isAdmin) {
-                navElements.adminDropdown.style.display = '';
-                console.log('✅ Admin dropdown shown');
-            } else {
-                navElements.adminDropdown.style.display = 'none';
-                console.log('✅ Admin dropdown hidden for customer');
-            }
+        if (user.role === 'admin') {
+            if (navElements.adminDropdown) navElements.adminDropdown.style.display = '';
+            if (navElements.userDropdown) navElements.userDropdown.style.display = '';
+            if (navElements.profile) navElements.profile.style.display = '';
+            if (navElements.logout) navElements.logout.style.display = '';
+        } else {
+            // Customer: show user dropdown, profile, logout
+            if (navElements.userDropdown) navElements.userDropdown.style.display = '';
+            if (navElements.profile) navElements.profile.style.display = '';
+            if (navElements.logout) navElements.logout.style.display = '';
+            if (navElements.adminDropdown) navElements.adminDropdown.style.display = 'none';
         }
-
         // Always show cart in header actions
         const headerActions = document.querySelector('.header-actions');
         if (headerActions) headerActions.style.display = 'flex';
-
         // Update user info in dropdown
         this.updateUserInfo(user);
         if (typeof window.refreshUserContext === 'function') window.refreshUserContext();
@@ -467,9 +474,8 @@ class HeaderAuth {
     }
 
     isUserAuthenticated() {
-        const token = localStorage.getItem('userToken');
         const userData = localStorage.getItem('userData');
-        return !!(token && userData && token !== 'null' && userData !== 'null');
+        return !!(userData && userData !== 'null');
     }
 
     isUserAdmin() {

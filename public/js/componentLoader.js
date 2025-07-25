@@ -45,6 +45,8 @@ class ComponentLoader {
     // Load header component
     async loadHeader(selector = 'header-placeholder') {
         await this.insertComponent(`#${selector}`, '/components/header.html');
+        // After header is loaded, refresh header menus
+        if (window.refreshHeaderAuth) window.refreshHeaderAuth();
     }
 
     // Load footer component

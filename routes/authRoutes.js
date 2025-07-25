@@ -258,18 +258,27 @@ router.get('/me', async (req, res) => {
     }
     
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const [rows] = await promisePool.execute('SELECT id, name, email, role, created_at FROM users WHERE id = ?', [decoded.id]);
-    
+    // Fetch user and remember_token
+    const [rows] = await promisePool.execute('SELECT id, name, email, role, created_at, remember_token FROM users WHERE id = ?', [decoded.id]);
     if (rows.length === 0) {
       return res.status(401).json({
         success: false,
         message: 'User not found'
       });
     }
-    
+    const user = rows[0];
+    // Check if token matches remember_token
+    if (!user.remember_token || user.remember_token !== token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Token does not match stored session'
+      });
+    }
+    // Remove remember_token from response
+    delete user.remember_token;
     res.json({
       success: true,
-      data: rows[0]
+      data: user
     });
     
   } catch (error) {

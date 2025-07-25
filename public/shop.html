@@ -797,7 +797,7 @@
     </style>
 </head>
 <body>
-        <div id="header-placeholder"></div>
+    <div id="header-placeholder"></div>
 
         <main class="container">
             <section class="hero">
@@ -1757,42 +1757,18 @@ window.nextSlide = function() {
 
     <script src="js/componentLoader.js"></script>
     <script>
-        // Load header and footer components when DOM is ready
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM loaded, loading components...');
-            loadComponent('header-placeholder', 'components/header.html').then(() => {
-                console.log('Header loaded successfully');
-                // Refresh user context after header loads (in case login state changed)
-                setTimeout(() => {
-                    refreshUserContext();
-                }, 500); // Small delay to ensure header script has executed
-            }).catch(error => {
-                console.error('Error loading header:', error);
-            });
-            
-            loadComponent('footer-placeholder', 'components/footer.html').then(() => {
-                console.log('Footer loaded successfully');
-            }).catch(error => {
-                console.error('Error loading footer:', error);
-            });
-        });
-
         // Function to refresh user context and update cart count
         function refreshUserContext() {
             console.log('🔄 Refreshing user context...');
             const newUser = getCurrentUser();
-            
             console.log('- Previous user:', currentUser);
             console.log('- New user:', newUser);
-            
             // Always update the current user context
             currentUser = newUser;
             console.log('✅ User context updated to:', currentUser);
-            
             // Update cart count for the new user context
             updateCartCount();
         }
-
         // Make refreshUserContext available globally for header component
         window.refreshUserContext = refreshUserContext;
     </script>

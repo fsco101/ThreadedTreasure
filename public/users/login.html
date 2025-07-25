@@ -486,18 +486,19 @@
                 data: JSON.stringify(formData),
                 success: function(response) {
                     if (response.success) {
-                        // Store token and user info
+                        // Store JWT token and user info
                         localStorage.setItem('userToken', response.data.token);
                         localStorage.setItem('userData', JSON.stringify(response.data.user));
-                        
+
                         // Dispatch events to notify header and other components
+                        if (window.refreshHeaderAuth) window.refreshHeaderAuth();
                         window.dispatchEvent(new CustomEvent('loginSuccess', {
                             detail: { user: response.data.user }
                         }));
                         window.dispatchEvent(new CustomEvent('authChanged'));
-                        
+
                         showToast('Login successful! Welcome back!', 'success');
-                        
+
                         // Redirect all users to shop.html
                         setTimeout(function() {
                             window.location.href = '/shop.html';

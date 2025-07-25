@@ -1,4 +1,4 @@
-<!-- Unified Header Component -->
+<!-- Unified Header Component (Role-based authentication only, no token required) -->
 <header class="main-header">
     <div class="header-content">
         <div class="logo">
@@ -538,3 +538,7 @@
 
 <!-- Include the header JavaScript -->
 <script src="/js/header.js"></script>
+<!--
+  NOTE: Authentication is now role-based. The header menus are shown/hidden based on the userData object in localStorage.
+  No token is required for menu display. Admin menus are shown if userData.role === 'admin' or userData.is_admin is true/1.
+-->
