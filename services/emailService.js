@@ -1,14 +1,20 @@
 const nodemailer = require('nodemailer');
+const puppeteer = require('puppeteer');
+const path = require('path');
+const fs = require('fs').promises;
 
 class EmailService {
     constructor() {
+        // Gmail configuration - simplified to always use Gmail
         this.transporter = nodemailer.createTransport({
             service: 'gmail',
             auth: {
-                user: process.env.EMAIL_USER || 'your-gmail@gmail.com',
-                pass: process.env.EMAIL_PASSWORD || 'your-app-password'
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASSWORD
             }
         });
+        
+        console.log('📧 Email service configured for Gmail:', process.env.EMAIL_USER);
     }
 
     async sendOrderConfirmation(orderData) {
@@ -16,7 +22,7 @@ class EmailService {
             const receiptHTML = this.generateReceiptHTML(orderData);
             
             const mailOptions = {
-                from: `"ThreadedTreasure" <${process.env.EMAIL_USER || 'noreply@threadedtreasure.com'}>`,
+                from: `"ThreadedTreasure" <${process.env.EMAIL_USER}>`,
                 to: orderData.customer.email,
                 subject: `Order Confirmation #${orderData.orderNumber}`,
                 html: receiptHTML
@@ -35,7 +41,7 @@ class EmailService {
         try {
             const receiptHTML = this.generateStatusUpdateHTML(orderData);
             const mailOptions = {
-                from: `"ThreadedTreasure" <${process.env.EMAIL_USER || 'noreply@threadedtreasure.com'}>`,
+                from: `"ThreadedTreasure" <${process.env.EMAIL_USER}>`,
                 to: orderData.customer.email,
                 subject: `Order Status Update #${orderData.orderNumber} - ${orderData.status}`,
                 html: receiptHTML
@@ -47,6 +53,83 @@ class EmailService {
             console.error('Failed to send order status update email:', error);
             return { success: false, error: error.message };
         }
+    }
+
+    async sendOrderStatusUpdateWithPDF(orderData) {
+        try {
+            // Generate PDF receipt
+            const pdfBuffer = await this.generateOrderReceiptPDF(orderData);
+            
+            // Generate status update HTML
+            const statusHTML = this.generateStatusUpdateHTML(orderData);
+            
+            const mailOptions = {
+                from: `"ThreadedTreasure" <${process.env.EMAIL_USER}>`,
+                to: orderData.customer.email,
+                subject: `Order Status Update #${orderData.orderNumber} - ${this.getStatusDisplayName(orderData.status)}`,
+                html: statusHTML,
+                attachments: [
+                    {
+                        filename: `Order-${orderData.orderNumber}-Receipt.pdf`,
+                        content: pdfBuffer,
+                        contentType: 'application/pdf'
+                    }
+                ]
+            };
+
+            const result = await this.transporter.sendMail(mailOptions);
+            console.log('✅ Order status update email with PDF sent:', result.messageId);
+            return { success: true, messageId: result.messageId };
+        } catch (error) {
+            console.error('❌ Failed to send order status update email with PDF:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async generateOrderReceiptPDF(orderData) {
+        let browser;
+        try {
+            browser = await puppeteer.launch({ 
+                headless: 'new',
+                args: ['--no-sandbox', '--disable-setuid-sandbox']
+            });
+            const page = await browser.newPage();
+            
+            const receiptHTML = this.generateReceiptHTML(orderData);
+            await page.setContent(receiptHTML);
+            
+            const pdfBuffer = await page.pdf({
+                format: 'A4',
+                printBackground: true,
+                margin: {
+                    top: '1cm',
+                    right: '1cm',
+                    bottom: '1cm',
+                    left: '1cm'
+                }
+            });
+
+            return pdfBuffer;
+        } catch (error) {
+            console.error('❌ Failed to generate PDF:', error);
+            throw error;
+        } finally {
+            if (browser) {
+                await browser.close();
+            }
+        }
+    }
+
+    getStatusDisplayName(status) {
+        const statusMap = {
+            'pending': 'Pending',
+            'processing': 'Processing',
+            'shipped': 'Shipped',
+            'delivered': 'Delivered',
+            'cancelled': 'Cancelled',
+            'refunded': 'Refunded'
+        };
+        return statusMap[status] || status.charAt(0).toUpperCase() + status.slice(1);
     }
 
     generateReceiptHTML(orderData) {
@@ -64,7 +147,7 @@ class EmailService {
             createdAt
         } = orderData;
 
-        const formatPrice = (price) => `$${parseFloat(price).toFixed(2)}`;
+        const formatPrice = (price) => `$${parseFloat(price || 0).toFixed(2)}`;
         const formatDate = (date) => new Date(date).toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'long',
@@ -198,47 +281,31 @@ class EmailService {
                     text-align: center;
                     font-size: 14px;
                 }
-                .support-info {
-                    margin-top: 15px;
-                    color: #bbb;
-                }
-                @media (max-width: 600px) {
-                    body { padding: 10px; }
-                    .header, .content { padding: 20px; }
-                    .order-details { flex-direction: column; }
-                }
             </style>
         </head>
         <body>
             <div class="receipt-container">
-                <!-- Header -->
                 <div class="header">
                     <h1>ThreadedTreasure</h1>
-                    <p>Thank you for your order!</p>
+                    <p>Order Receipt</p>
                 </div>
 
-                <!-- Order Info -->
                 <div class="order-info">
-                    <h2>Order Confirmation</h2>
+                    <h2>Order #${orderNumber}</h2>
                     <div class="order-details">
                         <div class="detail-item">
-                            <strong>Order Number:</strong> ${orderNumber}
+                            <strong>Date:</strong> ${formatDate(createdAt)}
                         </div>
                         <div class="detail-item">
-                            <strong>Order Date:</strong> ${formatDate(createdAt)}
+                            <strong>Customer:</strong> ${customer.name}
                         </div>
                         <div class="detail-item">
-                            <strong>Customer:</strong> ${customer.name || customer.email}
-                        </div>
-                        <div class="detail-item">
-                            <strong>Status:</strong> Processing
+                            <strong>Email:</strong> ${customer.email}
                         </div>
                     </div>
                 </div>
 
-                <!-- Content -->
                 <div class="content">
-                    <!-- Items -->
                     <div class="section">
                         <h3>Order Items</h3>
                         <table class="items-table">
@@ -251,48 +318,24 @@ class EmailService {
                                 </tr>
                             </thead>
                             <tbody>
-                                ${items.map(item => `
+                                ${(items || []).map(item => `
                                     <tr>
                                         <td>
                                             <div class="item-name">${item.name}</div>
-                                            ${item.size || item.color ? `<div class="item-details">
+                                            <div class="item-details">
                                                 ${item.size ? `Size: ${item.size}` : ''}
-                                                ${item.size && item.color ? ', ' : ''}
-                                                ${item.color ? `Color: ${item.color}` : ''}
-                                            </div>` : ''}
+                                                ${item.color ? ` • Color: ${item.color}` : ''}
+                                            </div>
                                         </td>
                                         <td>${item.quantity}</td>
                                         <td>${formatPrice(item.price)}</td>
-                                        <td>${formatPrice(item.price * item.quantity)}</td>
+                                        <td>${formatPrice(item.total || (item.price * item.quantity))}</td>
                                     </tr>
                                 `).join('')}
                             </tbody>
                         </table>
                     </div>
 
-                    <!-- Shipping Address -->
-                    <div class="section">
-                        <h3>Shipping Address</h3>
-                        <div class="address-section">
-                            <strong>${shippingAddress.name}</strong><br>
-                            ${shippingAddress.address_line_1}<br>
-                            ${shippingAddress.address_line_2 ? `${shippingAddress.address_line_2}<br>` : ''}
-                            ${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.postal_code}<br>
-                            ${shippingAddress.country || 'United States'}
-                            ${shippingAddress.phone ? `<br>Phone: ${shippingAddress.phone}` : ''}
-                        </div>
-                    </div>
-
-                    <!-- Payment Method -->
-                    <div class="section">
-                        <h3>Payment Method</h3>
-                        <div class="address-section">
-                            <strong>${paymentMethod.method || paymentMethod}</strong>
-                            ${paymentMethod.last4 ? `<br>**** **** **** ${paymentMethod.last4}` : ''}
-                        </div>
-                    </div>
-
-                    <!-- Order Totals -->
                     <div class="totals-section">
                         <div class="total-row">
                             <span>Subtotal:</span>
@@ -302,39 +345,21 @@ class EmailService {
                             <span>Shipping:</span>
                             <span>${formatPrice(shipping)}</span>
                         </div>
-                        ${tax > 0 ? `
-                            <div class="total-row">
-                                <span>Tax:</span>
-                                <span>${formatPrice(tax)}</span>
-                            </div>
-                        ` : ''}
-                        ${discount > 0 ? `
-                            <div class="total-row">
-                                <span>Discount:</span>
-                                <span>-${formatPrice(discount)}</span>
-                            </div>
-                        ` : ''}
+                        <div class="total-row">
+                            <span>Tax:</span>
+                            <span>${formatPrice(tax)}</span>
+                        </div>
                         <div class="total-row final">
                             <span>Total:</span>
                             <span>${formatPrice(total)}</span>
                         </div>
                     </div>
-
-                    <!-- Delivery Info -->
-                    <div class="section">
-                        <h3>Delivery Information</h3>
-                        <p><strong>Estimated Delivery:</strong> 3-5 business days</p>
-                        <p>We'll send you tracking information once your order ships.</p>
-                    </div>
                 </div>
 
-                <!-- Footer -->
                 <div class="footer">
-                    <p><strong>Thank you for shopping with ThreadedTreasure!</strong></p>
-                    <div class="support-info">
-                        <p>Questions about your order? Contact us at support@threadedtreasure.com</p>
-                        <p>Order tracking and returns: www.threadedtreasure.com/account</p>
-                    </div>
+                    <p><strong>ThreadedTreasure</strong></p>
+                    <p>Thank you for your business!</p>
+                    <p>Contact: support@threadedtreasure.com</p>
                 </div>
             </div>
         </body>
@@ -344,18 +369,45 @@ class EmailService {
 
     generateStatusUpdateHTML(orderData) {
         const {
-            orderNumber, customer, items, shippingAddress, paymentMethod,
-            subtotal, shipping, tax, discount, total, createdAt, status, notes
+            orderNumber, customer, items, status, payment_status,
+            subtotal, shipping, tax, total, createdAt, updatedAt
         } = orderData;
-        const formatPrice = (price) => `$${parseFloat(price).toFixed(2)}`;
+        
+        const formatPrice = (price) => `$${parseFloat(price || 0).toFixed(2)}`;
         const formatDate = (date) => new Date(date).toLocaleDateString('en-US', {
             year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
         });
+
+        const getStatusColor = (status) => {
+            const colors = {
+                'pending': '#f39c12',
+                'processing': '#3498db',
+                'shipped': '#9b59b6',
+                'delivered': '#27ae60',
+                'cancelled': '#e74c3c',
+                'refunded': '#95a5a6'
+            };
+            return colors[status] || '#34495e';
+        };
+
+        const getStatusMessage = (status) => {
+            const messages = {
+                'pending': 'Your order has been received and is being processed.',
+                'processing': 'Your order is currently being prepared for shipment.',
+                'shipped': 'Your order has been shipped and is on its way to you!',
+                'delivered': 'Your order has been successfully delivered. Thank you for shopping with us!',
+                'cancelled': 'Your order has been cancelled. If you have any questions, please contact us.',
+                'refunded': 'Your order has been refunded. The refund will appear in your account within 3-5 business days.'
+            };
+            return messages[status] || 'Your order status has been updated.';
+        };
+
         return `
         <!DOCTYPE html>
         <html>
         <head>
             <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Order Status Update</title>
             <style>
                 body {
@@ -366,7 +418,7 @@ class EmailService {
                     padding: 20px;
                     background-color: #f5f5f5;
                 }
-                .receipt-container {
+                .email-container {
                     max-width: 600px;
                     margin: 0 auto;
                     background: white;
@@ -381,75 +433,75 @@ class EmailService {
                     text-align: center;
                 }
                 .header h1 {
-                    margin: 0;
+                    margin: 0 0 10px 0;
                     font-size: 28px;
                     font-weight: 300;
                 }
+                .status-banner {
+                    background: ${getStatusColor(status)};
+                    color: white;
+                    padding: 20px 30px;
+                    text-align: center;
+                    font-size: 18px;
+                    font-weight: bold;
+                }
+                .content {
+                    padding: 30px;
+                }
                 .order-info {
                     background: #f8f9fa;
-                    padding: 20px 30px;
-                    border-bottom: 1px solid #eee;
-                }
-                .order-info h2 {
-                    margin: 0 0 10px 0;
-                    color: #2c3e50;
-                    font-size: 20px;
+                    padding: 20px;
+                    border-radius: 6px;
+                    margin-bottom: 20px;
                 }
                 .order-details {
                     display: flex;
                     justify-content: space-between;
                     flex-wrap: wrap;
                     gap: 20px;
-                }
-                .detail-item {
-                    color: #666;
-                }
-                .detail-item strong {
-                    color: #333;
-                }
-                .content {
-                    padding: 30px;
-                }
-                .section {
-                    margin-bottom: 30px;
-                }
-                .section h3 {
-                    color: #2c3e50;
-                    margin-bottom: 15px;
-                    font-size: 18px;
-                    border-bottom: 2px solid #eee;
-                    padding-bottom: 5px;
-                }
-                .items-table {
-                    width: 100%;
-                    border-collapse: collapse;
                     margin-bottom: 20px;
                 }
-                .items-table th,
-                .items-table td {
-                    padding: 12px;
-                    text-align: left;
+                .detail-item {
+                    flex: 1;
+                    min-width: 200px;
+                }
+                .detail-item strong {
+                    display: block;
+                    color: #2c3e50;
+                    margin-bottom: 5px;
+                }
+                .items-section h3 {
+                    color: #2c3e50;
+                    margin-bottom: 15px;
+                    border-bottom: 2px solid #eee;
+                    padding-bottom: 10px;
+                }
+                .item {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 10px 0;
                     border-bottom: 1px solid #eee;
                 }
-                .items-table th {
-                    background-color: #f8f9fa;
-                    font-weight: 600;
-                    color: #555;
+                .item:last-child {
+                    border-bottom: none;
                 }
-                .items-table .item-name {
+                .item-details {
+                    flex: 1;
+                }
+                .item-name {
                     font-weight: 500;
+                    margin-bottom: 5px;
                 }
-                .items-table .item-details {
+                .item-specs {
                     color: #666;
                     font-size: 14px;
                 }
-                .address-section {
-                    background: #f8f9fa;
-                    padding: 15px;
-                    border-radius: 6px;
-                    border-left: 4px solid #667eea;
+                .item-price {
+                    font-weight: bold;
+                    color: #2c3e50;
                 }
-                .totals-section {
+                .totals {
                     background: #f8f9fa;
                     padding: 20px;
                     border-radius: 6px;
@@ -475,103 +527,73 @@ class EmailService {
                     text-align: center;
                     font-size: 14px;
                 }
-                .support-info {
-                    margin-top: 15px;
-                    color: #bbb;
+                .footer a {
+                    color: #3498db;
+                    text-decoration: none;
                 }
-                @media (max-width: 600px) {
-                    body { padding: 10px; }
-                    .header, .content { padding: 20px; }
-                    .order-details { flex-direction: column; }
+                .status-timeline {
+                    margin: 20px 0;
+                    padding: 15px;
+                    background: #f8f9fa;
+                    border-radius: 6px;
+                    border-left: 4px solid ${getStatusColor(status)};
                 }
             </style>
         </head>
         <body>
-            <div class="receipt-container">
-                <!-- Header -->
+            <div class="email-container">
                 <div class="header">
                     <h1>ThreadedTreasure</h1>
-                    <p>Your order status has been updated!</p>
+                    <p>Order Status Update</p>
                 </div>
 
-                <!-- Order Info -->
-                <div class="order-info">
-                    <h2>Order Status Update</h2>
-                    <div class="order-details">
-                        <div class="detail-item">
-                            <strong>Order Number:</strong> ${orderNumber}
-                        </div>
-                        <div class="detail-item">
-                            <strong>Order Date:</strong> ${formatDate(createdAt)}
-                        </div>
-                        <div class="detail-item">
-                            <strong>Customer:</strong> ${customer.name || customer.email}
-                        </div>
-                        <div class="detail-item">
-                            <strong>Status:</strong> ${status}
-                        </div>
-                    </div>
-                    ${notes ? `<div style="margin-top:10px;"><strong>Admin Notes:</strong> ${notes}</div>` : ''}
+                <div class="status-banner">
+                    Order #${orderNumber} is now ${this.getStatusDisplayName(status).toUpperCase()}
                 </div>
 
-                <!-- Content -->
                 <div class="content">
-                    <!-- Items -->
-                    <div class="section">
+                    <div class="status-timeline">
+                        <strong>📦 ${getStatusMessage(status)}</strong>
+                        <p style="margin: 10px 0 0 0; color: #666;">
+                            Updated on ${formatDate(updatedAt || new Date())}
+                        </p>
+                    </div>
+
+                    <div class="order-info">
+                        <div class="order-details">
+                            <div class="detail-item">
+                                <strong>Order Number</strong>
+                                #${orderNumber}
+                            </div>
+                            <div class="detail-item">
+                                <strong>Order Date</strong>
+                                ${formatDate(createdAt)}
+                            </div>
+                            <div class="detail-item">
+                                <strong>Payment Status</strong>
+                                ${this.getStatusDisplayName(payment_status)}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="items-section">
                         <h3>Order Items</h3>
-                        <table class="items-table">
-                            <thead>
-                                <tr>
-                                    <th>Item</th>
-                                    <th>Qty</th>
-                                    <th>Price</th>
-                                    <th>Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${items.map(item => `
-                                    <tr>
-                                        <td>
-                                            <div class="item-name">${item.name}</div>
-                                            ${item.size || item.color ? `<div class="item-details">
-                                                ${item.size ? `Size: ${item.size}` : ''}
-                                                ${item.size && item.color ? ', ' : ''}
-                                                ${item.color ? `Color: ${item.color}` : ''}
-                                            </div>` : ''}
-                                        </td>
-                                        <td>${item.quantity}</td>
-                                        <td>${formatPrice(item.price)}</td>
-                                        <td>${formatPrice(item.price * item.quantity)}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
+                        ${(items || []).map(item => `
+                            <div class="item">
+                                <div class="item-details">
+                                    <div class="item-name">${item.name}</div>
+                                    <div class="item-specs">
+                                        Quantity: ${item.quantity}
+                                        ${item.size ? ` • Size: ${item.size}` : ''}
+                                        ${item.color ? ` • Color: ${item.color}` : ''}
+                                    </div>
+                                </div>
+                                <div class="item-price">${formatPrice(item.total || (item.price * item.quantity))}</div>
+                            </div>
+                        `).join('')}
                     </div>
 
-                    <!-- Shipping Address -->
-                    <div class="section">
-                        <h3>Shipping Address</h3>
-                        <div class="address-section">
-                            <strong>${shippingAddress.name}</strong><br>
-                            ${shippingAddress.address_line_1}<br>
-                            ${shippingAddress.address_line_2 ? `${shippingAddress.address_line_2}<br>` : ''}
-                            ${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.postal_code}<br>
-                            ${shippingAddress.country || 'United States'}
-                            ${shippingAddress.phone ? `<br>Phone: ${shippingAddress.phone}` : ''}
-                        </div>
-                    </div>
-
-                    <!-- Payment Method -->
-                    <div class="section">
-                        <h3>Payment Method</h3>
-                        <div class="address-section">
-                            <strong>${paymentMethod.method || paymentMethod}</strong>
-                            ${paymentMethod.last4 ? `<br>**** **** **** ${paymentMethod.last4}` : ''}
-                        </div>
-                    </div>
-
-                    <!-- Order Totals -->
-                    <div class="totals-section">
+                    <div class="totals">
                         <div class="total-row">
                             <span>Subtotal:</span>
                             <span>${formatPrice(subtotal)}</span>
@@ -580,39 +602,33 @@ class EmailService {
                             <span>Shipping:</span>
                             <span>${formatPrice(shipping)}</span>
                         </div>
-                        ${tax > 0 ? `
-                            <div class="total-row">
-                                <span>Tax:</span>
-                                <span>${formatPrice(tax)}</span>
-                            </div>
-                        ` : ''}
-                        ${discount > 0 ? `
-                            <div class="total-row">
-                                <span>Discount:</span>
-                                <span>-${formatPrice(discount)}</span>
-                            </div>
-                        ` : ''}
+                        <div class="total-row">
+                            <span>Tax:</span>
+                            <span>${formatPrice(tax)}</span>
+                        </div>
                         <div class="total-row final">
                             <span>Total:</span>
                             <span>${formatPrice(total)}</span>
                         </div>
                     </div>
 
-                    <!-- Delivery Info -->
-                    <div class="section">
-                        <h3>Delivery Information</h3>
-                        <p><strong>Estimated Delivery:</strong> 3-5 business days</p>
-                        <p>We'll send you tracking information once your order ships.</p>
+                    <div style="margin-top: 30px; padding: 20px; background: #e8f4f8; border-radius: 6px; text-align: center;">
+                        <p style="margin: 0 0 10px 0; font-weight: bold;">Need Help?</p>
+                        <p style="margin: 0; color: #666;">
+                            Contact our customer service team at 
+                            <a href="mailto:support@threadedtreasure.com">support@threadedtreasure.com</a>
+                        </p>
                     </div>
                 </div>
 
-                <!-- Footer -->
                 <div class="footer">
-                    <p><strong>Thank you for shopping with ThreadedTreasure!</strong></p>
-                    <div class="support-info">
-                        <p>Questions about your order? Contact us at support@threadedtreasure.com</p>
-                        <p>Order tracking and returns: www.threadedtreasure.com/account</p>
-                    </div>
+                    <p style="margin: 0 0 10px 0;">
+                        <strong>ThreadedTreasure</strong><br>
+                        Your Fashion Destination
+                    </p>
+                    <p style="margin: 0; opacity: 0.8;">
+                        Track your order • Manage account • Customer support
+                    </p>
                 </div>
             </div>
         </body>
@@ -620,13 +636,13 @@ class EmailService {
         `;
     }
 
-    async testConnection() {
+    async verifyConnection() {
         try {
             await this.transporter.verify();
-            console.log('Email service is ready');
+            console.log('✅ Email service connection verified');
             return true;
         } catch (error) {
-            console.error('Email service error:', error);
+            console.error('❌ Email service connection failed:', error);
             return false;
         }
     }

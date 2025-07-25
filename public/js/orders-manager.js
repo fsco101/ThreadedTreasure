@@ -213,10 +213,23 @@ class OrdersManager {
             processing: true,
             pageLength: 25,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
-            dom: 'Bfrtip',
+            dom: `
+                <'row mb-3'
+                    <'col-md-6'B>
+                    <'col-md-6'f>
+                >
+                <'row'
+                    <'col-12'tr>
+                >
+                <'row mt-3'
+                    <'col-md-5'i>
+                    <'col-md-7'p>
+                >
+            `,
             autoWidth: false,
             deferRender: true,
             stateSave: false,
+            scrollX: true,
             columnDefs: [
                 {
                     targets: [0, 8], // Checkbox and actions columns
@@ -237,18 +250,18 @@ class OrdersManager {
             buttons: [
                 {
                     extend: 'excel',
-                    text: '<i class="fas fa-file-excel"></i> Excel',
-                    className: 'btn btn-success btn-sm'
+                    text: '<i class="fas fa-file-excel me-1"></i>Excel',
+                    className: 'btn btn-success btn-sm me-1'
                 },
                 {
                     extend: 'pdf',
-                    text: '<i class="fas fa-file-pdf"></i> PDF',
-                    className: 'btn btn-danger btn-sm'
+                    text: '<i class="fas fa-file-pdf me-1"></i>PDF',
+                    className: 'btn btn-danger btn-sm me-1'
                 },
                 {
                     extend: 'print',
-                    text: '<i class="fas fa-print"></i> Print',
-                    className: 'btn btn-info btn-sm'
+                    text: '<i class="fas fa-print me-1"></i>Print',
+                    className: 'btn btn-info btn-sm me-1'
                 }
             ],
             order: [[1, 'desc']],
@@ -261,13 +274,20 @@ class OrdersManager {
                 infoFiltered: "(filtered from _MAX_ total entries)",
                 emptyTable: "No orders available",
                 loadingRecords: "Loading orders...",
-                processing: "Processing...",
+                processing: '<div class="d-flex align-items-center"><div class="spinner-border spinner-border-sm me-2" role="status"></div>Loading orders...</div>',
                 paginate: {
                     first: '<i class="fas fa-angle-double-left"></i>',
                     previous: '<i class="fas fa-angle-left"></i>',
                     next: '<i class="fas fa-angle-right"></i>',
                     last: '<i class="fas fa-angle-double-right"></i>'
                 }
+            },
+            drawCallback: function() {
+                // Apply enhanced pagination styling after each draw
+                $('.dataTables_paginate .paginate_button').addClass('page-link');
+                $('.dataTables_paginate .paginate_button.current').addClass('active');
+                $('.dataTables_length select').addClass('form-select form-select-sm');
+                $('.dataTables_filter input').addClass('form-control form-control-sm');
             }
         };
     }
@@ -348,11 +368,12 @@ class OrdersManager {
     async updateOrderStatus() {
         const orderId = $('#statusOrderId').val();
         const newStatus = $('#newStatus').val();
-        const notes = $('#statusNotes').val();
+        
         if (!newStatus) {
             this.showError('Error', 'Please select a status');
             return;
         }
+
         try {
             const response = await $.ajax({
                 url: `/api/orders/admin/${orderId}/status`,
@@ -362,15 +383,22 @@ class OrdersManager {
                     'Content-Type': 'application/json'
                 },
                 data: JSON.stringify({
-                    status: newStatus,
-                    notes: notes
+                    status: newStatus
                 })
             });
+
             if (response.success) {
                 Swal.fire({
                     icon: 'success',
                     title: 'Success!',
-                    text: 'Order status updated successfully'
+                    html: `
+                        <div style="text-align: left;">
+                            <p><strong>✅ Order status updated successfully</strong></p>
+                            <p><strong>📧 Email notification sent to customer</strong></p>
+                            <p><strong>📄 PDF receipt attached to email</strong></p>
+                        </div>
+                    `,
+                    confirmButtonText: 'Great!'
                 });
                 $('#statusUpdateModal').modal('hide');
                 this.refreshTable();
@@ -379,7 +407,8 @@ class OrdersManager {
             }
         } catch (error) {
             console.error('Update status error:', error);
-            this.showError('Error', 'Failed to update order status');
+            const errorMessage = error.responseJSON?.message || 'Failed to update order status';
+            this.showError('Error', errorMessage);
         }
     }
 
@@ -455,10 +484,11 @@ class OrdersManager {
                         </label>
                         <select class="form-select" name="status">
                             <option value="pending">Pending</option>
-                            <option value="confirmed">Confirmed</option>
                             <option value="processing">Processing</option>
                             <option value="shipped">Shipped</option>
                             <option value="delivered">Delivered</option>
+                            <option value="cancelled">Cancelled</option>
+                            <option value="refunded">Refunded</option>
                         </select>
                         <small class="form-text text-muted">Current order status</small>
                     </div>
@@ -479,50 +509,8 @@ class OrdersManager {
         $('#statusOrderId').val(order.id);
         $('#currentStatus').text((order.status || 'pending').toUpperCase());
         $('#newStatus').val(order.status || 'pending');
-        $('#statusNotes').val('');
         
         $('#statusUpdateModal').modal('show');
-    }
-
-    async updateOrderStatus() {
-        const orderId = $('#statusOrderId').val();
-        const newStatus = $('#newStatus').val();
-        const notes = $('#statusNotes').val();
-
-        if (!newStatus) {
-            this.showError('Error', 'Please select a status');
-            return;
-        }
-
-        try {
-            const response = await $.ajax({
-                url: `/api/orders/admin/${orderId}/status`,
-                method: 'PATCH',
-                headers: {
-                    'Authorization': `Bearer ${window.adminAuth.getToken()}`,
-                    'Content-Type': 'application/json'
-                },
-                data: JSON.stringify({
-                    status: newStatus,
-                    notes: notes
-                })
-            });
-
-            if (response.success) {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Success!',
-                    text: 'Order status updated successfully'
-                });
-                $('#statusUpdateModal').modal('hide');
-                this.refreshTable();
-            } else {
-                this.showError('Error', response.message || 'Failed to update order status');
-            }
-        } catch (error) {
-            console.error('Update status error:', error);
-            this.showError('Error', 'Failed to update order status');
-        }
     }
 
     async saveOrder() {
@@ -655,45 +643,3 @@ $(document).ready(() => {
     }
 });
 
-// Add this HTML snippet to your admin page (e.g., admin-dashboard.html or orders-manager.html):
-/*
-<div class="modal fade" id="statusUpdateModal" tabindex="-1" aria-labelledby="statusUpdateModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="statusUpdateModalLabel"><i class="fas fa-edit me-2"></i>Update Order Status</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <input type="hidden" id="statusOrderId">
-        <div class="mb-3">
-          <label class="form-label">Current Status:</label>
-          <span id="currentStatus" class="fw-bold"></span>
-        </div>
-        <div class="mb-3">
-          <label for="newStatus" class="form-label">New Status</label>
-          <select id="newStatus" class="form-select">
-            <option value="pending">Pending</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="processing">Processing</option>
-            <option value="shipped">Shipped</option>
-            <option value="delivered">Delivered</option>
-            <option value="cancelled">Cancelled</option>
-            <option value="refunded">Refunded</option>
-          </select>
-        </div>
-        <div class="mb-3">
-          <label for="statusNotes" class="form-label">Admin Notes (optional)</label>
-          <textarea id="statusNotes" class="form-control" rows="2"></textarea>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-        <button type="button" class="btn btn-primary" id="saveStatusUpdateBtn">
-          <i class="fas fa-save me-2"></i>Update Status
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
-*/

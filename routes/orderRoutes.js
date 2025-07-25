@@ -529,46 +529,122 @@ router.patch('/admin/:id/status', authenticateToken, async (req, res) => {
     const connection = await mysql.createConnection(dbConfig);
     try {
         const { id } = req.params;
-        const { status, notes } = req.body;
+        const { status } = req.body;
+        
         if (!status) {
             return res.status(400).json({ success: false, message: 'Status is required' });
         }
+
+        // Validate status against database enum values
+        const validStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Invalid status. Must be one of: ' + validStatuses.join(', ')
+            });
+        }
+        
         // Determine new payment_status based on status
         let paymentStatusUpdate = null;
         if (status === 'delivered') {
-            paymentStatusUpdate = 'paid';
+            paymentStatusUpdate = 'completed';  // Using 'completed' as per database enum
         } else if (status === 'refunded') {
             paymentStatusUpdate = 'refunded';
         } else if (status === 'cancelled') {
-            paymentStatusUpdate = 'cancelled';
+            paymentStatusUpdate = 'failed';     // Using 'failed' as closest match for cancelled
+        } else if (status === 'processing') {
+            paymentStatusUpdate = 'processing';
         }
 
-        // Always update payment_status if needed, regardless of notes being undefined, null, or empty
+        // Update both status and payment_status if needed
         if (paymentStatusUpdate) {
-            if (typeof notes === 'undefined') {
-                await connection.execute(`
-                    UPDATE orders SET status = ?, payment_status = ?, updated_at = NOW() WHERE id = ?
-                `, [status, paymentStatusUpdate, id]);
-            } else {
-                await connection.execute(`
-                    UPDATE orders SET status = ?, notes = ?, payment_status = ?, updated_at = NOW() WHERE id = ?
-                `, [status, notes, paymentStatusUpdate, id]);
-            }
+            await connection.execute(`
+                UPDATE orders SET status = ?, payment_status = ?, updated_at = NOW() WHERE id = ?
+            `, [status, paymentStatusUpdate, id]);
         } else {
-            if (typeof notes === 'undefined') {
-                await connection.execute(`
-                    UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?
-                `, [status, id]);
-            } else {
-                await connection.execute(`
-                    UPDATE orders SET status = ?, notes = ?, updated_at = NOW() WHERE id = ?
-                `, [status, notes, id]);
+            await connection.execute(`
+                UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?
+            `, [status, id]);
+        }
+
+        // Fetch complete order data for email notification
+        const [orderRows] = await connection.execute(`
+            SELECT 
+                o.*,
+                u.name as customer_name,
+                u.email as customer_email,
+                u.phone as customer_phone
+            FROM orders o
+            LEFT JOIN users u ON o.user_id = u.id
+            WHERE o.id = ?
+        `, [id]);
+
+        if (orderRows.length > 0) {
+            const order = orderRows[0];
+
+            // Fetch order items
+            const [itemRows] = await connection.execute(`
+                SELECT 
+                    oi.*,
+                    p.name as product_name,
+                    p.main_image as product_image
+                FROM order_items oi
+                LEFT JOIN products p ON oi.product_id = p.id
+                WHERE oi.order_id = ?
+            `, [id]);
+
+            // Prepare order data for email
+            const orderData = {
+                orderNumber: order.order_number || order.id,
+                customer: {
+                    name: order.customer_name || 'Unknown Customer',
+                    email: order.customer_email,
+                    phone: order.customer_phone
+                },
+                items: itemRows.map(item => ({
+                    name: item.product_name || item.product_name,
+                    quantity: item.quantity,
+                    price: item.unit_price,
+                    total: item.total_price,
+                    size: item.size,
+                    color: item.color,
+                    image: item.product_image
+                })),
+                subtotal: order.subtotal || 0,
+                shipping: 0, // Add shipping calculation if needed
+                tax: 0, // Add tax calculation if needed
+                total: order.total_amount || 0,
+                status: status,
+                payment_status: paymentStatusUpdate || order.payment_status,
+                createdAt: order.created_at,
+                updatedAt: new Date()
+            };
+
+            // Send email notification with PDF receipt
+            try {
+                const emailResult = await emailService.sendOrderStatusUpdateWithPDF(orderData);
+                if (emailResult.success) {
+                    console.log('✅ Order status update email sent successfully');
+                } else {
+                    console.error('❌ Failed to send order status update email:', emailResult.error);
+                }
+            } catch (emailError) {
+                console.error('❌ Email service error:', emailError);
+                // Don't fail the status update if email fails
             }
         }
-        res.json({ success: true, message: 'Order status and payment status updated successfully' });
+        
+        res.json({ 
+            success: true, 
+            message: 'Order status updated successfully and notification sent',
+            data: { status, payment_status: paymentStatusUpdate }
+        });
     } catch (error) {
         console.error('Admin update order status error:', error);
-        res.status(500).json({ success: false, message: 'Failed to update order status' });
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to update order status: ' + error.message 
+        });
     } finally {
         await connection.end();
     }
