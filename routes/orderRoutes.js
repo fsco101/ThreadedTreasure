@@ -46,12 +46,12 @@ function generateOrderNumber() {
 router.post('/', authenticateToken, async (req, res) => {
     const connection = await mysql.createConnection(dbConfig);
     
+
     try {
         await connection.beginTransaction();
 
         const {
             items,
-            shippingAddress,
             paymentMethod,
             subtotal,
             shipping,
@@ -68,46 +68,35 @@ router.post('/', authenticateToken, async (req, res) => {
                 message: 'Order items are required'
             });
         }
-
-        if (!shippingAddress || !paymentMethod) {
+        if (!paymentMethod) {
             return res.status(400).json({
                 success: false,
-                message: 'Shipping address and payment method are required'
+                message: 'Payment method is required'
             });
         }
 
+        // Get shipping info from request body (checkout form)
+        const shippingAddress = req.body.shippingAddress || {};
+        // Defensive: fallback to empty string if not provided
+        const shippingName = shippingAddress.name || shippingAddress.fullName || '';
+        const addressLine1 = shippingAddress.address1 || '';
+        const addressLine2 = shippingAddress.address2 || '';
+        const city = shippingAddress.city || '';
+        const state = shippingAddress.state || '';
+        const postalCode = shippingAddress.postal_code || shippingAddress.postalCode || '';
+        const country = shippingAddress.country || 'United States';
+        const shippingPhone = shippingAddress.phone || '';
+
         // Generate order number
         const orderNumber = generateOrderNumber();
-
-        // Create shipping address if needed
-        let shippingAddressId = null;
-        if (shippingAddress.id) {
-            shippingAddressId = shippingAddress.id;
-        } else {
-            const [addressResult] = await connection.execute(`
-                INSERT INTO shipping_addresses (user_id, name, address_line_1, address_line_2, city, state, postal_code, country, phone)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `, [
-                req.user.id,
-                shippingAddress.name || `${shippingAddress.firstName} ${shippingAddress.lastName}`,
-                shippingAddress.address1 || shippingAddress.address_line_1,
-                shippingAddress.address2 || shippingAddress.address_line_2,
-                shippingAddress.city,
-                shippingAddress.state,
-                shippingAddress.zipCode || shippingAddress.postal_code,
-                shippingAddress.country || 'United States',
-                shippingAddress.phone
-            ]);
-            shippingAddressId = addressResult.insertId;
-        }
 
         // Create order
         const [orderResult] = await connection.execute(`
             INSERT INTO orders (
                 user_id, order_number, status, payment_status, payment_method,
-                subtotal, shipping_amount, total_amount, shipping_address_id, notes,
+                subtotal, total_amount,
                 created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         `, [
             req.user.id,
             orderNumber,
@@ -115,13 +104,12 @@ router.post('/', authenticateToken, async (req, res) => {
             'pending',
             paymentMethod.method || paymentMethod,
             subtotal || 0,
-            shipping || 0,
-            total || 0,
-            shippingAddressId,
-            notes || null
+            total || 0
         ]);
 
         const orderId = orderResult.insertId;
+
+        // No shipping info update: orders table does not have these columns
 
         // Add order items
         for (const item of items) {
@@ -163,13 +151,6 @@ router.post('/', authenticateToken, async (req, res) => {
         const customer = customerRows[0];
         const customerName = customer ? customer.name : 'Valued Customer';
 
-        // Get shipping address details
-        const [addressRows] = await connection.execute(`
-            SELECT * FROM shipping_addresses WHERE id = ?
-        `, [shippingAddressId]);
-
-        const fullShippingAddress = addressRows[0];
-
         // Prepare order data for email
         const orderDataForEmail = {
             orderNumber,
@@ -178,7 +159,16 @@ router.post('/', authenticateToken, async (req, res) => {
                 name: customerName
             },
             items,
-            shippingAddress: fullShippingAddress,
+            shippingAddress: {
+                name: shippingAddress.name || `${shippingAddress.firstName || ''} ${shippingAddress.lastName || ''}`,
+                address_line_1: shippingAddress.address1 || shippingAddress.address_line_1 || '',
+                address_line_2: shippingAddress.address2 || shippingAddress.address_line_2 || '',
+                city: shippingAddress.city || '',
+                state: shippingAddress.state || '',
+                postal_code: shippingAddress.zipCode || shippingAddress.postal_code || '',
+                country: shippingAddress.country || 'United States',
+                phone: shippingAddress.phone || ''
+            },
             paymentMethod,
             subtotal,
             shipping,
@@ -278,19 +268,7 @@ router.get('/:orderId', authenticateToken, async (req, res) => {
 
         // Get order details
         const [orders] = await connection.execute(`
-            SELECT 
-                o.*,
-                sa.name as shipping_name,
-                sa.address_line_1,
-                sa.address_line_2,
-                sa.city,
-                sa.state,
-                sa.postal_code,
-                sa.country,
-                sa.phone as shipping_phone
-            FROM orders o
-            LEFT JOIN shipping_addresses sa ON o.shipping_address_id = sa.id
-            WHERE o.id = ? AND o.user_id = ?
+            SELECT * FROM orders WHERE id = ? AND user_id = ?
         `, [orderId, req.user.id]);
 
         if (orders.length === 0) {

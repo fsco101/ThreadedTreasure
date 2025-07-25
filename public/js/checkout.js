@@ -324,6 +324,32 @@ class CheckoutManager {
             phone: phone
         });
     }
+    autoFillShippingFormFromUser() {
+        // Only autofill name, not address or phone
+        const user = this.currentUser;
+        if (!user || user.isGuest) return;
+        const fullNameField = document.getElementById('fullName');
+        if (fullNameField) {
+            fullNameField.value = user.name || '';
+            fullNameField.readOnly = true;
+        }
+        // Leave address and phone empty and editable
+        const address1Field = document.getElementById('address1');
+        if (address1Field) {
+            address1Field.value = '';
+            address1Field.readOnly = false;
+        }
+        const phoneField = document.getElementById('phone');
+        if (phoneField) {
+            phoneField.value = '';
+            phoneField.readOnly = false;
+        }
+        console.log('Form auto-filled with:', {
+            fullName: user.name,
+            address: '',
+            phone: ''
+        });
+    }
 
     renderSavedAddresses(addresses) {
         const container = document.getElementById('saved-addresses');
@@ -646,15 +672,12 @@ async placeOrder() {
         const responseText = await response.text();
         console.log('Order response:', response.status, responseText);
         
-        // If API call fails, fallback to simulation
+
         if (!response.ok) {
             console.error('Order API error:', response.status, responseText);
-            if (response.status >= 500 || response.status === 0) {
-                console.warn('API server error, simulating order...');
-                this.simulateOrderPlacement();
-            } else {
-                this.showError('Failed to save order. (Debug: ' + responseText + ')');
-            }
+            this.showError('Failed to save order. Please try again later. (Debug: ' + responseText + ')');
+            button.disabled = false;
+            if (spinner) spinner.style.display = 'none';
             return;
         }
 
@@ -662,75 +685,38 @@ async placeOrder() {
         try {
             result = JSON.parse(responseText);
         } catch (e) {
-            console.warn('Response is not JSON, treating as success');
-            result = { success: true };
+            this.showError('Order placed, but response was invalid. Please check your order history.');
+            button.disabled = false;
+            if (spinner) spinner.style.display = 'none';
+            return;
         }
-        
+
         this.orderData = result.order || { 
             orderNumber: 'TT' + Date.now(),
             paymentMethod: this.paymentMethod,
             total: this.total
         };
-        
+
         console.log('Order placed successfully:', this.orderData);
         this.currentStep = 4;
         this.updateStepDisplay();
         this.updateProgress();
         this.showOrderConfirmation();
-        
+
         const cartKey = this.getCartKey();
         if (cartKey) localStorage.removeItem(cartKey);
+        button.disabled = false;
+        if (spinner) spinner.style.display = 'none';
     } catch (error) {
         console.error('Order error:', error);
-        console.warn('Simulating order placement due to error...');
-        this.simulateOrderPlacement();
-    } finally {
+        this.showError('Failed to save order. Please try again later.');
         button.disabled = false;
         if (spinner) spinner.style.display = 'none';
     }
 }
 
 
-    simulateOrderPlacement() {
-        console.log('Simulating order placement (API server not available)');
-        
-        // Create a simulated order
-        this.orderData = {
-            orderNumber: 'TT' + Date.now(),
-            paymentMethod: this.paymentMethod,
-            total: this.total,
-            status: 'pending',
-            simulated: true
-        };
-        
-        console.log('Simulated order created:', this.orderData);
-        
-        // Move to completion step
-        this.currentStep = 4;
-        this.updateStepDisplay();
-        this.updateProgress();
-        this.showOrderConfirmation();
-        
-        // Clear cart
-        const cartKey = this.getCartKey();
-        if (cartKey) {
-            localStorage.removeItem(cartKey);
-            console.log('Cart cleared (simulated mode)');
-        }
-        
-        // Show a notice that this is simulated
-        setTimeout(() => {
-            const notice = document.createElement('div');
-            notice.className = 'alert alert-info';
-            notice.innerHTML = `
-                <i class="fas fa-info-circle"></i> 
-                <strong>Demo Mode:</strong> This order was placed in demo mode. 
-                No real transaction occurred.
-            `;
-            notice.style.marginTop = '15px';
-            document.getElementById('order-confirmation').appendChild(notice);
-        }, 1000);
-    }
+
 
     showOrderConfirmation() {
         const orderNumber = this.orderData.orderNumber || 'TT' + Date.now();
@@ -1082,6 +1068,14 @@ $(document).ready(function() {
         console.error('jQuery validation plugin not loaded');
         // Fallback to basic initialization
         checkout = new CheckoutManager();
+    }
+    // Ensure jQuery validation is available
+    if (typeof $.validator !== 'undefined') {
+        if (checkout) checkout.autoFillShippingFormFromUser();
+    } else {
+        setTimeout(() => {
+            if (checkout) checkout.autoFillShippingFormFromUser();
+        }, 500);
     }
 });
 
