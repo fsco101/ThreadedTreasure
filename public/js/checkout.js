@@ -698,13 +698,23 @@ async placeOrder() {
         };
 
         console.log('Order placed successfully:', this.orderData);
+        
+        // Clear the cart completely before showing success
+        console.log('Clearing cart after successful order...');
+        this.clearCart();
+        
+        // Update display to show order completion
         this.currentStep = 4;
         this.updateStepDisplay();
         this.updateProgress();
         this.showOrderConfirmation();
+        
+        // Double-check cart is cleared and force UI update
+        setTimeout(() => {
+            this.clearCart();
+            console.log('Cart double-checked and cleared');
+        }, 500);
 
-        const cartKey = this.getCartKey();
-        if (cartKey) localStorage.removeItem(cartKey);
         button.disabled = false;
         if (spinner) spinner.style.display = 'none';
     } catch (error) {
@@ -831,6 +841,57 @@ async placeOrder() {
             default:
                 return '';
         }
+    }
+
+    clearCart() {
+        // Clear cart from memory
+        this.cart = [];
+        
+        // Clear cart from localStorage
+        const cartKey = this.getCartKey();
+        if (cartKey) {
+            localStorage.removeItem(cartKey);
+            console.log(`Cart cleared for user ${this.currentUser.id}`);
+        }
+        
+        // Update cart display
+        this.renderCartItems();
+        this.calculateTotals();
+        
+        // Update cart count in header if it exists
+        this.updateCartCount();
+        
+        // Dispatch event to notify other components (like header cart count)
+        window.dispatchEvent(new CustomEvent('cartUpdated', {
+            detail: { cartCount: 0, cartTotal: 0 }
+        }));
+        
+        // Force update cart count immediately
+        setTimeout(() => {
+            this.updateCartCount();
+            // Also call global updateCartCount if it exists
+            if (typeof window.updateCartCount === 'function') {
+                window.updateCartCount();
+            }
+        }, 100);
+    }
+
+    updateCartCount() {
+        // Update cart count in header
+        const cartCountEl = document.getElementById('cart-count');
+        if (cartCountEl) {
+            cartCountEl.textContent = '0';
+            cartCountEl.style.display = 'none';
+        }
+        
+        // Update any other cart count elements
+        const cartCountElements = document.querySelectorAll('.cart-count, #cart-count, [data-cart-count]');
+        cartCountElements.forEach(el => {
+            el.textContent = '0';
+            if (el.style) el.style.display = 'none';
+        });
+        
+        console.log('Cart count updated to 0');
     }
 
     showError(message) {

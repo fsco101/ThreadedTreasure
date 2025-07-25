@@ -334,6 +334,17 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Update cart count in header if it exists
     updateCartCount();
+    
+    // Listen for cart updates from other pages (like checkout)
+    window.addEventListener('cartUpdated', function(event) {
+        console.log('Cart updated event received:', event.detail);
+        if (cart) {
+            cart.loadCart();
+            cart.calculateTotals();
+            cart.renderCart();
+            updateCartCount();
+        }
+    });
 });
 
 function updateCartCount() {
