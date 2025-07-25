@@ -567,6 +567,61 @@ router.patch('/admin/:id/status', authenticateToken, async (req, res) => {
             `, [status, id]);
         }
 
+        // Inventory management logic
+        // Get current order status
+        const [currentOrderRows] = await connection.execute('SELECT status FROM orders WHERE id = ?', [id]);
+        const currentStatus = currentOrderRows.length > 0 ? currentOrderRows[0].status : null;
+        const inventoryDeductedStatuses = ['processing', 'shipped', 'delivered'];
+        const inventoryReturnedStatuses = ['cancelled', 'refunded'];
+        const wasInventoryDeducted = inventoryDeductedStatuses.includes(currentStatus);
+        const willInventoryBeDeducted = inventoryDeductedStatuses.includes(status);
+        const willInventoryBeReturned = inventoryReturnedStatuses.includes(status);
+        // Get order items
+        const [orderItems] = await connection.execute('SELECT * FROM order_items WHERE order_id = ?', [id]);
+        // Deduct inventory if transitioning to processing/shipped/delivered for the first time
+        if (!wasInventoryDeducted && willInventoryBeDeducted) {
+            for (const item of orderItems) {
+                const [inventoryResult] = await connection.execute(`
+                    UPDATE inventory 
+                    SET quantity = quantity - ? 
+                    WHERE product_id = ? AND size = ? AND color = ? AND quantity >= ?
+                `, [
+                    item.quantity,
+                    item.product_id,
+                    item.size || 'One Size',
+                    item.color || 'Default',
+                    item.quantity
+                ]);
+                if (inventoryResult.affectedRows === 0) {
+                    // Try to get current stock for error message
+                    const [stockCheck] = await connection.execute(`
+                        SELECT quantity FROM inventory 
+                        WHERE product_id = ? AND size = ? AND color = ?
+                    `, [
+                        item.product_id,
+                        item.size || 'One Size',
+                        item.color || 'Default'
+                    ]);
+                    const currentStock = stockCheck.length > 0 ? stockCheck[0].quantity : 0;
+                    throw new Error(`Insufficient stock for ${item.product_name}. Available: ${currentStock}, Required: ${item.quantity}`);
+                }
+            }
+        }
+        // Return inventory if transitioning to cancelled/refunded (only if inventory was previously deducted)
+        else if (wasInventoryDeducted && willInventoryBeReturned) {
+            for (const item of orderItems) {
+                await connection.execute(`
+                    UPDATE inventory 
+                    SET quantity = quantity + ? 
+                    WHERE product_id = ? AND size = ? AND color = ?
+                `, [
+                    item.quantity,
+                    item.product_id,
+                    item.size || 'One Size',
+                    item.color || 'Default'
+                ]);
+            }
+        }
         // Fetch complete order data for email notification
         const [orderRows] = await connection.execute(`
             SELECT 
