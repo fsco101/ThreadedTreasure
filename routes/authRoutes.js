@@ -46,27 +46,19 @@ router.post('/register', async (req, res) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12);
     
-    // Generate email verification token
-    const emailVerificationToken = jwt.sign(
-      { email: email, type: 'email_verification' },
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' }
-    );
 
-    // Create user
+    // Create user (without email_verification_token)
     const query = `
-      INSERT INTO users (name, email, password, phone, address, newsletter_subscribed, email_verification_token, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      INSERT INTO users (name, email, password, phone, address, newsletter_subscribed, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
     `;
-    
     const [result] = await promisePool.execute(query, [
-      name, 
-      email, 
-      hashedPassword, 
-      phone || null, 
-      address || null, 
-      newsletter ? 1 : 0,
-      emailVerificationToken
+      name,
+      email,
+      hashedPassword,
+      phone || null,
+      address || null,
+      newsletter ? 1 : 0
     ]);
 
     const user = {
@@ -86,8 +78,8 @@ router.post('/register', async (req, res) => {
       { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
     );
 
-    // Update last login
-    await promisePool.execute('UPDATE users SET last_login = NOW() WHERE id = ?', [user.id]);
+    // Update last login and save token in remember_token
+    await promisePool.execute('UPDATE users SET last_login = NOW(), remember_token = ? WHERE id = ?', [token, user.id]);
 
     res.status(201).json({
       success: true,
@@ -149,19 +141,20 @@ router.post('/login', async (req, res) => {
       });
     }
     
+
     // Generate JWT token
     const token = jwt.sign(
-      { 
-        id: user.id, 
-        email: user.email, 
-        role: user.role 
+      {
+        id: user.id,
+        email: user.email,
+        role: user.role
       },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
     );
 
-    // Update last login time
-    await promisePool.execute('UPDATE users SET last_login = NOW() WHERE id = ?', [user.id]);
+    // Update last login time and save token in remember_token
+    await promisePool.execute('UPDATE users SET last_login = NOW(), remember_token = ? WHERE id = ?', [token, user.id]);
 
     // Remove password from response
     delete user.password;

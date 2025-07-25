@@ -500,7 +500,7 @@
                         
                         // Redirect all users to shop.html
                         setTimeout(function() {
-                            window.location.href = '../shop.html';
+                            window.location.href = '/shop.html';
                         }, 1500);
                     } else {
                         showToast(response.message || 'Login failed. Please try again.', 'error');
@@ -596,17 +596,17 @@
                 try {
                     const user = JSON.parse(userData);
                     if (user.role === 'admin') {
-                        window.location.href = '../admin/crud-manager.html';
+                        window.location.href = '/shop.html';
                     } else {
-                        window.location.href = '../shop.html';
+                        window.location.href = '/shop.html';
                     }
                 } catch (error) {
                     console.error('Error parsing user data:', error);
-                    window.location.href = '../shop.html';
+                    window.location.href = '/shop.html';
                 }
             } else {
-                window.location.href = '../shop.html';
-            }
+                window.location.href = '/shop.html';
+            }s
         }
 
         function showToast(message, type = 'info', duration = 3000) {
