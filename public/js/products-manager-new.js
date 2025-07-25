@@ -85,6 +85,16 @@ class ProductsManager {
                 dataSrc: function(json) {
                     console.log('📦 Products API Response:', json);
                     if (json.success && json.data) {
+                        // Log image data for debugging
+                        json.data.forEach((product, index) => {
+                            if (index < 3) { // Log first 3 products for debugging
+                                console.log(`Product ${product.id} images:`, {
+                                    main_image: product.main_image,
+                                    images: product.images,
+                                    total_images: product.images ? product.images.length : 0
+                                });
+                            }
+                        });
                         return json.data;
                     } else {
                         console.error('❌ Products API Error: Invalid response format', json);
@@ -114,30 +124,67 @@ class ProductsManager {
                     data: 'main_image',
                     orderable: false,
                     searchable: false,
-                    width: '80px',
+                    width: '100px',
                     render: (data, type, row) => {
-                        // Handle multiple images - use first image or main_image
+                        // Enhanced image handling with fallback logic
                         let imageUrl = null;
+                        let totalImages = 0;
                         
-                        if (data) {
-                            imageUrl = data;
+                        console.log(`Rendering image for product ${row.id}:`, {
+                            main_image: data,
+                            images: row.images,
+                            images_count: row.images ? row.images.length : 0
+                        });
+                        
+                        // Primary: Use main_image if available
+                        if (data && data.trim() !== '') {
+                            imageUrl = data.startsWith('/') ? data : `/uploads/products/${data}`;
+                            totalImages = 1;
+                        } 
+                        // Secondary: Use first image from images array
+                        else if (row.images && Array.isArray(row.images) && row.images.length > 0) {
+                            const firstImage = row.images[0];
+                            const imgPath = firstImage.image_path || firstImage.filename;
+                            if (imgPath && imgPath.trim() !== '') {
+                                imageUrl = imgPath.startsWith('/') ? imgPath : `/uploads/products/${imgPath}`;
+                                totalImages = row.images.length;
+                            }
+                        }
+                        
+                        // Count total images including main_image
+                        if (data && data.trim() !== '' && row.images && row.images.length > 0) {
+                            totalImages = row.images.length + 1;
                         } else if (row.images && row.images.length > 0) {
-                            imageUrl = row.images[0].image_path || row.images[0].filename;
+                            totalImages = row.images.length;
                         }
                         
-                        if (imageUrl) {
-                            const imgSrc = imageUrl.startsWith('/') ? imageUrl : `/uploads/products/${imageUrl}`;
-                            return `<div class="product-image-container">
-                                        <i class="fas fa-image image-placeholder"></i>
-                                        <img src="${imgSrc}" 
-                                             alt="Product" 
-                                             onload="this.classList.add('loaded'); this.previousElementSibling.style.display='none';"
-                                             onerror="this.style.display='none'; this.previousElementSibling.style.display='flex';">
-                                    </div>`;
-                        }
-                        return `<div class="product-image-container">
-                                    <i class="fas fa-image image-placeholder"></i>
-                                </div>`;
+                        const hasMultipleImages = totalImages > 1;
+                        
+                        console.log(`Image URL for product ${row.id}:`, imageUrl);
+                        
+                        return `
+                            <div class="product-image-container position-relative" 
+                                 data-product-id="${row.id}"
+                                 ${hasMultipleImages ? `data-bs-toggle="tooltip" data-bs-placement="top" 
+                                                      title="${totalImages} image(s)"` : ''}>
+                                <i class="fas fa-image image-placeholder"></i>
+                                ${imageUrl ? `
+                                    <img src="${imageUrl}" 
+                                         alt="${(row.name || 'Product').replace(/"/g, '&quot;')}" 
+                                         class="product-thumb"
+                                         onload="this.classList.add('loaded'); this.previousElementSibling.style.display='none'; this.parentElement.classList.remove('loading', 'error');"
+                                         onerror="this.style.display='none'; this.previousElementSibling.style.display='flex'; this.parentElement.classList.add('error'); this.parentElement.classList.remove('loading'); console.error('Failed to load image for product ${row.id}:', this.src);"
+                                         onloadstart="this.parentElement.classList.add('loading');">
+                                ` : `
+                                    <div class="no-image-text">No Image</div>
+                                `}
+                                ${hasMultipleImages ? `
+                                    <span class="image-count-badge position-absolute top-0 end-0 bg-primary text-white rounded-circle d-flex align-items-center justify-content-center">
+                                        ${totalImages}
+                                    </span>
+                                ` : ''}
+                            </div>
+                        `;
                     }
                 },
                 { data: 'name' },
@@ -181,21 +228,38 @@ class ProductsManager {
             responsive: true,
             processing: true,
             serverSide: false,
-            pageLength: 25,
-            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
-            dom: 'Bfrtip',
+            pageLength: 15,
+            lengthMenu: [
+                [10, 15, 25, 50, 100, -1], 
+                [10, 15, 25, 50, 100, "All"]
+            ],
+            dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
+                 '<"row"<"col-sm-12"tr>>' +
+                 '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>' +
+                 '<"row"<"col-sm-12"B>>',
             autoWidth: false,
             deferRender: true,
-            stateSave: false,
+            stateSave: true,
+            stateDuration: 60 * 60 * 24, // Save state for 24 hours
             columnDefs: [
                 {
                     targets: 2, // Image column
-                    width: '80px',
+                    width: '100px',
                     className: 'text-center align-middle'
                 },
                 {
                     targets: [0, 9], // Checkbox and actions columns
-                    width: '60px',
+                    width: '80px',
+                    className: 'text-center align-middle'
+                },
+                {
+                    targets: 3, // Name column
+                    width: '200px',
+                    className: 'align-middle'
+                },
+                {
+                    targets: [5, 6], // Price and Stock columns
+                    width: '100px',
                     className: 'text-center align-middle'
                 }
             ],
@@ -203,60 +267,115 @@ class ProductsManager {
                 {
                     extend: 'excel',
                     text: '<i class="fas fa-file-excel"></i> Excel',
-                    className: 'btn btn-success btn-sm'
+                    className: 'btn btn-success btn-sm me-1',
+                    exportOptions: {
+                        columns: [1, 3, 4, 5, 6, 7, 8] // Exclude checkbox, image, and actions
+                    }
                 },
                 {
                     extend: 'pdf',
                     text: '<i class="fas fa-file-pdf"></i> PDF',
-                    className: 'btn btn-danger btn-sm'
+                    className: 'btn btn-danger btn-sm me-1',
+                    exportOptions: {
+                        columns: [1, 3, 4, 5, 6, 7, 8]
+                    }
                 },
                 {
                     extend: 'print',
                     text: '<i class="fas fa-print"></i> Print',
-                    className: 'btn btn-info btn-sm'
+                    className: 'btn btn-info btn-sm',
+                    exportOptions: {
+                        columns: [1, 3, 4, 5, 6, 7, 8]
+                    }
                 }
             ],
             order: [[1, 'desc']],
+            pagingType: 'full_numbers',
+            pageInfo: true,
+            searching: true,
+            searchHighlight: true,
             drawCallback: function() {
+                // Initialize tooltips for image containers
+                $('[data-bs-toggle="tooltip"]').tooltip();
+                
                 // Ensure all images are properly handled after table draw
                 $('.product-image-container img').each(function() {
+                    const img = $(this);
+                    const placeholder = img.siblings('.image-placeholder');
+                    
+                    // Check if image is already loaded
                     if (this.complete && this.naturalHeight !== 0) {
-                        $(this).addClass('loaded');
-                        $(this).siblings('.image-placeholder').hide();
+                        img.addClass('loaded');
+                        placeholder.hide();
+                    } else {
+                        // Handle image load event
+                        img.on('load', function() {
+                            $(this).addClass('loaded');
+                            placeholder.hide();
+                        });
+                        
+                        // Handle image error event
+                        img.on('error', function() {
+                            $(this).hide();
+                            placeholder.show();
+                            console.warn('Failed to load product image:', this.src);
+                        });
                     }
                 });
+                
+                // Update pagination info
+                const api = this.api();
+                const info = api.page.info();
+                const pageInfo = `Page ${info.page + 1} of ${info.pages} (${info.recordsTotal} total products)`;
+                $('.dataTables_info').text(pageInfo);
+                
+                // Add debugging for images
+                console.log('DataTable draw complete. Image containers found:', $('.product-image-container').length);
             },
             language: {
                 search: "_INPUT_",
                 searchPlaceholder: "Search products...",
-                lengthMenu: "Show _MENU_ entries",
-                info: "Showing _START_ to _END_ of _TOTAL_ entries",
-                infoEmpty: "Showing 0 to 0 of 0 entries",
-                infoFiltered: "(filtered from _MAX_ total entries)",
-                emptyTable: "No products available",
+                lengthMenu: "Show _MENU_ products per page",
+                info: "Showing _START_ to _END_ of _TOTAL_ products",
+                infoEmpty: "No products available",
+                infoFiltered: "(filtered from _MAX_ total products)",
+                emptyTable: "No products found",
                 loadingRecords: "Loading products...",
-                processing: "Processing...",
+                processing: '<div class="d-flex justify-content-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>',
                 paginate: {
                     first: '<i class="fas fa-angle-double-left"></i>',
                     previous: '<i class="fas fa-angle-left"></i>',
                     next: '<i class="fas fa-angle-right"></i>',
                     last: '<i class="fas fa-angle-double-right"></i>'
-                }
+                },
+                zeroRecords: "No matching products found"
             }
         };
     }
 
     getActionButtons(id) {
         return `
-            <div class="btn-group" role="group">
-                <button class="action-btn btn-view" onclick="productsManager.viewProduct(${id})" title="View">
+            <div class="btn-group" role="group" aria-label="Product Actions">
+                <button class="action-btn btn-view" 
+                        onclick="productsManager.viewProduct(${id})" 
+                        title="View Product Details"
+                        data-bs-toggle="tooltip"
+                        data-bs-placement="top">
                     <i class="fas fa-eye"></i>
                 </button>
-                <button class="action-btn btn-edit" onclick="productsManager.editProduct(${id})" title="Edit">
+                <button class="action-btn btn-edit" 
+                        onclick="productsManager.editProduct(${id})" 
+                        title="Edit Product"
+                        data-bs-toggle="tooltip"
+                        data-bs-placement="top">
                     <i class="fas fa-edit"></i>
                 </button>
-                <button class="action-btn btn-delete" onclick="productsManager.deleteProduct(${id})" title="Delete">
-                    <i class="fas fa-trash"></i>
+                <button class="action-btn btn-delete" 
+                        onclick="productsManager.deleteProduct(${id})" 
+                        title="Delete Product"
+                        data-bs-toggle="tooltip"
+                        data-bs-placement="top">
+                    <i class="fas fa-trash-alt"></i>
                 </button>
             </div>
         `;
@@ -654,22 +773,42 @@ class ProductsManager {
                 </div>
                 ` : ''}
                 ${(product.main_image || (product.images && product.images.length > 0)) ? `
-                <div class="col-12 text-center">
-                    <h6><strong>Product Images:</strong></h6>
-                    <div class="d-flex flex-wrap justify-content-center gap-2">
+                <div class="col-12">
+                    <h6><strong><i class="fas fa-images me-2"></i>Product Images:</strong></h6>
+                    <div class="row g-2">
                         ${product.main_image ? `
-                        <img src="${product.main_image.startsWith('/') ? product.main_image : '/uploads/products/' + product.main_image}" 
-                             alt="${product.name}" 
-                             class="img-thumbnail" 
-                             style="max-height: 150px; max-width: 150px; border-radius: 8px;">
+                        <div class="col-md-3 col-sm-4 col-6">
+                            <div class="position-relative">
+                                <img src="${product.main_image.startsWith('/') ? product.main_image : '/uploads/products/' + product.main_image}" 
+                                     alt="${product.name}" 
+                                     class="img-fluid rounded shadow-sm" 
+                                     style="aspect-ratio: 1; object-fit: cover; cursor: pointer;"
+                                     onclick="window.open(this.src, '_blank')">
+                                <span class="position-absolute top-0 start-0 bg-primary text-white px-2 py-1 rounded-end" style="font-size: 0.75rem;">
+                                    <i class="fas fa-star me-1"></i>Main
+                                </span>
+                            </div>
+                        </div>
                         ` : ''}
-                        ${product.images ? product.images.map(img => `
-                        <img src="${(img.image_path || img.filename).startsWith('/') ? (img.image_path || img.filename) : '/uploads/products/' + (img.image_path || img.filename)}" 
-                             alt="${product.name}" 
-                             class="img-thumbnail" 
-                             style="max-height: 150px; max-width: 150px; border-radius: 8px;">
+                        ${product.images && product.images.length > 0 ? product.images.map((img, index) => `
+                        <div class="col-md-3 col-sm-4 col-6">
+                            <div class="position-relative">
+                                <img src="${(img.image_path || img.filename).startsWith('/') ? (img.image_path || img.filename) : '/uploads/products/' + (img.image_path || img.filename)}" 
+                                     alt="${product.name} - Image ${index + 1}" 
+                                     class="img-fluid rounded shadow-sm" 
+                                     style="aspect-ratio: 1; object-fit: cover; cursor: pointer;"
+                                     onclick="window.open(this.src, '_blank')">
+                                <span class="position-absolute bottom-0 end-0 bg-dark text-white px-2 py-1 rounded-start" style="font-size: 0.75rem;">
+                                    ${index + 1}
+                                </span>
+                            </div>
+                        </div>
                         `).join('') : ''}
                     </div>
+                    <small class="text-muted mt-2 d-block">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Click on any image to view in full size
+                    </small>
                 </div>
                 ` : ''}
             </div>
