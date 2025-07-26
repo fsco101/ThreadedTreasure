@@ -128,8 +128,15 @@ class UserController {
   static async updateUser(req, res) {
     try {
       const { id } = req.params;
-      const { name, email, phone, address, role } = req.body;
-      
+      let { name, email, phone, address, role } = req.body;
+
+      // Fix: Convert undefined or empty string to null for SQL compatibility
+      name = name === undefined || name === '' ? null : name;
+      email = email === undefined || email === '' ? null : email;
+      phone = phone === undefined || phone === '' ? null : phone;
+      address = address === undefined || address === '' ? null : address;
+      role = role === undefined || role === '' ? null : role;
+
       const query = `
         UPDATE users 
         SET name = ?, email = ?, phone = ?, address = ?, role = ?, updated_at = NOW()

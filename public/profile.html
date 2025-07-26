@@ -459,12 +459,6 @@
                         <li><a href="#" class="nav-link" data-section="orders">
                             <i class="fas fa-shopping-bag"></i> My Orders
                         </a></li>
-                        <li><a href="#" class="nav-link" data-section="addresses">
-                            <i class="fas fa-map-marker-alt"></i> Addresses
-                        </a></li>
-                        <li><a href="#" class="nav-link" data-section="preferences">
-                            <i class="fas fa-cog"></i> Preferences
-                        </a></li>
                     </ul>
                 </div>
 
@@ -480,7 +474,6 @@
                         <div id="profile-alerts"></div>
 
                         <form id="personal-info-form">
-
                             <div class="form-row">
                                 <div class="form-group">
                                     <label class="form-label" for="name">Full Name</label>
@@ -503,24 +496,6 @@
                                 <label class="form-label" for="address">Address</label>
                                 <textarea class="form-control" id="address" name="address" rows="3" placeholder="Enter your full address"></textarea>
                             </div>
-
-                            <script>
-                            // Patch: Ensure no undefined/null values in form submission
-                            document.addEventListener('DOMContentLoaded', function() {
-                                var form = document.getElementById('personal-info-form');
-                                if (form) {
-                                    form.addEventListener('submit', function(e) {
-                                        var fields = ['name','email','phone','address'];
-                                        fields.forEach(function(f) {
-                                            var el = document.getElementById(f);
-                                            if (el && (el.value === undefined || el.value === '')) {
-                                                el.value = '';
-                                            }
-                                        });
-                                    });
-                                }
-                            });
-                            </script>
 
                             <div class="btn-group">
                                 <button type="submit" class="btn btn-primary">
@@ -581,138 +556,12 @@
 
                         <div id="orders-list"></div>
                     </div>
-
-                    <!-- Addresses Section -->
-                    <div id="addresses" class="profile-section hidden">
-                        <h2 class="section-title">
-                            <i class="fas fa-map-marker-alt"></i>
-                            My Addresses
-                        </h2>
-
-                        <div class="btn-group" style="margin-bottom: 2rem;">
-                            <button class="btn btn-primary" onclick="showAddAddressForm()">
-                                <i class="fas fa-plus"></i> Add New Address
-                            </button>
-                        </div>
-
-                        <div id="addresses-list"></div>
-                    </div>
-
-                    <!-- Preferences Section -->
-                    <div id="preferences" class="profile-section hidden">
-                        <h2 class="section-title">
-                            <i class="fas fa-cog"></i>
-                            Preferences
-                        </h2>
-
-                        <form id="preferences-form">
-                            <div class="form-group">
-                                <label class="form-label">Email Notifications</label>
-                                <div>
-                                    <label class="form-check">
-                                        <input type="checkbox" id="email_orders" name="email_orders" checked>
-                                        Order updates and shipping notifications
-                                    </label>
-                                </div>
-                                <div>
-                                    <label class="form-check">
-                                        <input type="checkbox" id="email_promotions" name="email_promotions">
-                                        Promotional offers and new arrivals
-                                    </label>
-                                </div>
-                                <div>
-                                    <label class="form-check">
-                                        <input type="checkbox" id="email_newsletter" name="email_newsletter">
-                                        Weekly newsletter
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div class="form-group">
-                                <label class="form-label" for="preferred_currency">Preferred Currency</label>
-                                <select class="form-control" id="preferred_currency" name="preferred_currency">
-                                    <option value="USD">USD ($)</option>
-                                    <option value="EUR">EUR (€)</option>
-                                    <option value="GBP">GBP (£)</option>
-                                </select>
-                            </div>
-
-                            <div class="btn-group">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-save"></i> Save Preferences
-                                </button>
-                            </div>
-                        </form>
-
-                        <hr style="margin: 2rem 0;">
-
-                        <div style="border: 1px solid #ff6b6b; border-radius: 8px; padding: 1.5rem; background: rgba(255, 107, 107, 0.05);">
-                            <h4 style="color: #c53030; margin-bottom: 1rem;">
-                                <i class="fas fa-exclamation-triangle"></i> Danger Zone
-                            </h4>
-                            <p style="color: #718096; margin-bottom: 1rem;">
-                                Once you delete your account, there is no going back. Please be certain.
-                            </p>
-                            <button class="btn btn-danger" onclick="confirmDeleteAccount()">
-                                <i class="fas fa-trash"></i> Delete My Account
-                            </button>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
     </main>
 
-    <div id="footer-placeholder"></div>
-
-    <script src="js/componentLoader.js"></script>
-    <script src="js/profile.js"></script>
-    <script>
-    // Load header and footer components
-    document.addEventListener('DOMContentLoaded', function() {
-        loadComponent('header-placeholder', 'components/header.html');
-        loadComponent('footer-placeholder', 'components/footer.html');
-
-        // Fetch user profile data
-        fetch('/api/users/profile', { credentials: 'include' })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success && data.user) {
-                    const user = data.user;
-                    document.getElementById('profile-name').textContent = user.name || '';
-                    document.getElementById('profile-email').textContent = user.email || '';
-                    document.getElementById('name').value = user.name || '';
-                    document.getElementById('email').value = user.email || '';
-                    document.getElementById('phone').value = user.phone || '';
-                    document.getElementById('address').value = user.address || '';
-                    document.getElementById('member-since').textContent = user.created_at ? new Date(user.created_at).getFullYear() : '';
-                    // Orders and spent can be fetched from another endpoint if needed
-                    // Avatar
-                    if (user.avatar) {
-                        document.getElementById('profile-avatar-img').src = '/uploads/' + user.avatar;
-                        document.getElementById('profile-avatar-img').style.display = 'block';
-                        document.getElementById('profile-avatar-icon').style.display = 'none';
-                    } else {
-                        document.getElementById('profile-avatar-img').style.display = 'none';
-                        document.getElementById('profile-avatar-icon').style.display = 'block';
-                    }
-                }
-            });
-        // Avatar upload preview
-        document.getElementById('avatar-upload').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(evt) {
-                    document.getElementById('profile-avatar-img').src = evt.target.result;
-                    document.getElementById('profile-avatar-img').style.display = 'block';
-                    document.getElementById('profile-avatar-icon').style.display = 'none';
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-    });
-    </script>
+ <script src="js/profile.js"></script>
 <div id="footer-placeholder"></div>
 <script>
 function loadComponent(placeholderId, url) {

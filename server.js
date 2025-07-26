@@ -38,17 +38,36 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Serve frontend static files
 app.use(express.static(path.join(__dirname, 'public')));
 
-// API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/products', productRoutes);
-app.use('/api/categories', categoryRoutes);
-app.use('/api/orders', orderRoutes);
-app.use('/api/upload', uploadRoutes);
+// API version prefix
+const API_VERSION = '/api';
+
+// Centralize API routes
+app.use(`${API_VERSION}/auth`, authRoutes);
+app.use(`${API_VERSION}/users`, userRoutes);
+app.use(`${API_VERSION}/products`, productRoutes);
+app.use(`${API_VERSION}/categories`, categoryRoutes);
+app.use(`${API_VERSION}/orders`, orderRoutes);
+app.use(`${API_VERSION}/upload`, uploadRoutes);
 
 // Dashboard charts API
 const dashboardChartsRoutes = require('./routes/dashboardCharts');
-app.use('/api/dashboard-charts', dashboardChartsRoutes);
+app.use(`${API_VERSION}/dashboard-charts`, dashboardChartsRoutes);
+
+// Add API documentation endpoint
+app.get(`${API_VERSION}/docs`, (req, res) => {
+    res.json({
+        version: '1.0',
+        endpoints: {
+            auth: ['POST /login', 'POST /register', 'POST /logout'],
+            users: ['GET /profile', 'PUT /profile', 'POST /avatar'],
+            products: ['GET /', 'POST /', 'PUT /:id', 'DELETE /:id'],
+            categories: ['GET /', 'POST /', 'PUT /:id', 'DELETE /:id'],
+            orders: ['GET /', 'POST /', 'PUT /:id', 'GET /user/:userId'],
+            upload: ['POST /image'],
+            dashboard: ['GET /stats', 'GET /charts']
+        }
+    });
+});
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -107,6 +126,29 @@ app.get('/crud-manager', (req, res) => {
 
 app.get('/users', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin', 'user-management.html'));
+});
+
+// Profile endpoint
+app.get('/profile', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'profile.html'));
+});
+
+// My orders endpoint
+app.get('/my-orders', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'users', 'my-orders.html'));
+});
+
+// Admin routes
+app.get('/products-manager', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin', 'products-manager-new.html'));
+});
+
+app.get('/categories-manager', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin', 'categories-manager.html'));
+});
+
+app.get('/orders-manager', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin', 'orders-manager.html'));
 });
 
 // Global error handler

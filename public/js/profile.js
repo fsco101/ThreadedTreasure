@@ -58,12 +58,6 @@ class ProfileManager {
             this.changePassword();
         });
 
-        document.getElementById('preferences-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.updatePreferences();
-        });
-
-        // Password strength checker
         document.getElementById('new_password').addEventListener('input', (e) => {
             this.checkPasswordStrength(e.target.value);
         });
@@ -104,8 +98,6 @@ class ProfileManager {
         // Load section-specific data
         if (sectionName === 'orders') {
             this.loadOrders();
-        } else if (sectionName === 'addresses') {
-            this.loadAddresses();
         }
     }
 
@@ -239,11 +231,12 @@ class ProfileManager {
     async updateProfile() {
         const formData = new FormData(document.getElementById('personal-info-form'));
         let profileData = Object.fromEntries(formData.entries());
+
         // Only keep fields that exist in the DB: name, email, phone, address
         const allowedFields = ['name', 'email', 'phone', 'address'];
-        // Always ensure all allowed fields are present and set to null if blank or undefined
         allowedFields.forEach(field => {
-            if (!profileData[field] || profileData[field] === '' || profileData[field] === undefined) {
+            // If field is undefined or empty string, set to null (SQL NULL)
+            if (profileData[field] === undefined || profileData[field] === '') {
                 profileData[field] = null;
             }
         });
@@ -263,12 +256,11 @@ class ProfileManager {
             });
 
             const data = await response.json();
-            
+
             if (data.success) {
                 this.showAlert('profile-alerts', 'Profile updated successfully!', 'success');
                 this.currentUser = data.data;
                 this.populateProfile(data.data);
-                // Update localStorage
                 localStorage.setItem('userData', JSON.stringify(data.data));
             } else {
                 this.showAlert('profile-alerts', data.message || 'Failed to update profile', 'error');
@@ -427,17 +419,6 @@ class ProfileManager {
         `).join('');
         
         ordersList.innerHTML = ordersHtml;
-    }
-
-    async loadAddresses() {
-        // This would load user addresses - placeholder for now
-        const addressesList = document.getElementById('addresses-list');
-        addressesList.innerHTML = `
-            <div style="text-align: center; padding: 3rem; color: var(--text-light);">
-                <i class="fas fa-map-marker-alt" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
-                <p>Address management feature coming soon!</p>
-            </div>
-        `;
     }
 
     async updatePreferences() {
@@ -608,7 +589,4 @@ document.addEventListener('DOMContentLoaded', () => {
     new ProfileManager();
 });
 
-// Helper functions for other components
-window.showAddAddressForm = function() {
-    alert('Add address functionality coming soon!');
-};
+
