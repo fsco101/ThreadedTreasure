@@ -33,7 +33,7 @@ class UserController {
         INSERT INTO users (name, email, password, phone, address, role, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
       `;
-      const [result] = await promisePool.execute(query, [name, email, hashedPassword, phone, address, role || 'customer']);
+      const [result] = await promisePool.execute(query, [name, email, hashedPassword, phone, address, role || 'user']);
       
       const user = {
         id: result.insertId,
@@ -41,7 +41,7 @@ class UserController {
         email,
         phone,
         address,
-        role: role || 'customer'
+        role: role || 'user'
       };
       
       res.status(201).json({
@@ -194,7 +194,21 @@ class UserController {
         email = email === undefined || email === '' ? null : email;
         phone = phone === undefined || phone === '' ? null : phone;
         address = address === undefined || address === '' ? null : address;
-        role = role === undefined || role === '' ? null : role;
+
+        // Fix: Always preserve the current role if not provided in the update
+        if (role === undefined || role === '' || role === null) {
+            // Fetch current role from DB
+            const [current] = await promisePool.execute('SELECT role FROM users WHERE id = ?', [id]);
+            role = current.length > 0 ? current[0].role : 'user';
+        }
+
+        // Validate role
+        if (role && !['user', 'admin'].includes(role)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid role. Must be "user" or "admin"'
+            });
+        }
 
         const query = `
             UPDATE users 

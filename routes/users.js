@@ -38,7 +38,7 @@ const requireAdmin = (req, res, next) => {
 // User Registration
 router.post('/register', async (req, res) => {
     try {
-        const { name, email, phone, address, password, newsletter } = req.body;
+        const { name, email, phone, address, password, newsletter_subscribed } = req.body;
 
         // Validate required fields
         if (!name || !email || !password) {
@@ -52,69 +52,34 @@ router.post('/register', async (req, res) => {
         const checkUserQuery = 'SELECT id FROM users WHERE email = ?';
         db.query(checkUserQuery, [email], async (err, results) => {
             if (err) {
-                console.error('Database error:', err);
-                return res.status(500).json({
-                    success: false,
-                    message: 'Database error occurred'
-                });
+                return res.status(500).json({ success: false, message: 'Database error' });
             }
-
             if (results.length > 0) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Email already registered'
-                });
+                return res.status(400).json({ success: false, message: 'Email already registered' });
             }
 
             // Hash password
-            const hashedPassword = await bcrypt.hash(password, 10);
+            const bcrypt = require('bcrypt');
+            const hashedPassword = await bcrypt.hash(password, 12);
 
-            // Insert new user
-            // Always store is_active as 1 (active) for registration
+            // Always set role to "user"
             const insertUserQuery = `
                 INSERT INTO users (name, email, phone, address, password, role, is_active, newsletter_subscribed, created_at)
                 VALUES (?, ?, ?, ?, ?, 'user', 1, ?, NOW())
             `;
-
-            db.query(insertUserQuery, [name, email, phone, address, hashedPassword, newsletter || false], (err, result) => {
+            db.query(insertUserQuery, [name, email, phone, address, hashedPassword, newsletter_subscribed ? 1 : 0], (err, result) => {
                 if (err) {
-                    console.error('Database error:', err);
-                    return res.status(500).json({
-                        success: false,
-                        message: 'Error creating user account'
-                    });
+                    return res.status(500).json({ success: false, message: 'Database error' });
                 }
-
-                // Generate JWT token
-                const token = jwt.sign(
-                    { 
-                        id: result.insertId, 
-                        email: email, 
-                        role: 'user' 
-                    },
-                    JWT_SECRET,
-                    { expiresIn: '24h' }
-                );
-
                 res.status(201).json({
                     success: true,
                     message: 'User registered successfully',
-                    token: token,
-                    user: {
-                        id: result.insertId,
-                        name: name,
-                        email: email,
-                        role: 'user'
-                    }
+                    data: { id: result.insertId, name, email, phone, address, role: 'user', is_active: 1 }
                 });
             });
         });
     } catch (error) {
-        console.error('Registration error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Internal server error'
-        });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 
