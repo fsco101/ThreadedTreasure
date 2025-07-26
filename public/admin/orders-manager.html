@@ -384,8 +384,9 @@
     </style>
     
 </head>
+
 <body>
-    <!-- Header -->
+
     <div id="header-placeholder"></div>
 
     <!-- Admin Header Banner -->
@@ -553,23 +554,7 @@
     <script src="../js/admin-auth.js"></script>
     <script src="../js/orders-manager.js"></script>
     
-    <!-- Component Loader -->
-    <script src="../js/componentLoader.js"></script>
-    <script>
-        // Load reusable components
-        document.addEventListener('DOMContentLoaded', function() {
-            if (window.ComponentLoader) {
-                ComponentLoader.insertComponent('#admin-header-placeholder', '../components/admin-header.html');
-            } else {
-                fetch('../components/admin-header.html')
-                    .then(response => response.text())
-                    .then(html => {
-                        document.getElementById('admin-header-placeholder').innerHTML = html;
-                    })
-                    .catch(error => console.error('Error loading admin header:', error));
-            }
-        });
-    </script>
+
     <div id="footer-placeholder"></div>
 <script>
 function loadComponent(placeholderId, url) {

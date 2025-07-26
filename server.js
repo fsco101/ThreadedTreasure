@@ -109,19 +109,12 @@ app.get('/register', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'users', 'register.html'));
 });
 
-// Remove the separate admin-login route since we're using unified login
 
-app.get('/dashboard', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'admin', 'admin-dashboard.html'));
-});
 
 app.get('/admin-dashboard', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin', 'admin-dashboard.html'));
 });
 
-app.get('/crud-manager', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'admin', 'crud-manager.html'));
-});
 
 app.get('/users', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin', 'user-management.html'));

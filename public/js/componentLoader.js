@@ -8,12 +8,11 @@ class ComponentLoader {
     // Load a component from file
     async loadComponent(componentPath) {
         try {
-            // Check if component is already cached
-            if (this.cache.has(componentPath)) {
-                return this.cache.get(componentPath);
-            }
+            // Always bypass cache for header.html
+            const isHeader = componentPath.includes('header.html');
+            const fetchPath = isHeader ? `${componentPath}?v=${Date.now()}` : componentPath;
 
-            const response = await fetch(componentPath);
+            const response = await fetch(fetchPath, { cache: 'reload' });
             if (!response.ok) {
                 throw new Error(`Failed to load component: ${componentPath}`);
             }
