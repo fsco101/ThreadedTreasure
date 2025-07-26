@@ -521,12 +521,25 @@ class HeaderAuth {
 let headerAuth;
 
 // Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🎯 DOM loaded, initializing header auth...');
-    headerAuth = new HeaderAuth();
-    
-    // Make it globally available
-    window.headerAuth = headerAuth;
+document.addEventListener('DOMContentLoaded', function () {
+    const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+    const isLoggedIn = userData && userData.id && userData.is_active;
+
+    document.querySelectorAll('.nav-profile, .nav-logout, .nav-user-dropdown').forEach(el => {
+        el.style.display = isLoggedIn ? '' : 'none';
+    });
+
+    const isAdmin = isLoggedIn && (userData.role === 'admin' || userData.is_admin);
+    document.querySelectorAll('.nav-admin-dropdown').forEach(el => {
+        el.style.display = isAdmin ? '' : 'none';
+    });
+
+    if (isLoggedIn) {
+        document.getElementById('header-user-name').textContent = userData.name || 'User';
+        document.getElementById('header-user-email').textContent = userData.email || '';
+        document.getElementById('dropdown-user-name').textContent = userData.name || 'User';
+        document.getElementById('dropdown-user-email').textContent = userData.email || '';
+    }
 });
 
 // Periodic check for authentication state (fallback)

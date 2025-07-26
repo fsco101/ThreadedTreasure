@@ -488,21 +488,31 @@
                     if (response.success) {
                         // Store JWT token and user info
                         localStorage.setItem('userToken', response.data.token);
-                        localStorage.setItem('userData', JSON.stringify(response.data.user));
 
-                        // Dispatch events to notify header and other components
-                        if (window.refreshHeaderAuth) window.refreshHeaderAuth();
-                        window.dispatchEvent(new CustomEvent('loginSuccess', {
-                            detail: { user: response.data.user }
-                        }));
-                        window.dispatchEvent(new CustomEvent('authChanged'));
+                        // --- is_active logic added here ---
+                        let user = response.data.user;
+                        // If is_active is missing, default to 1 (active)
+                        if (typeof user.is_active === 'undefined') user.is_active = 1;
 
-                        showToast('Login successful! Welcome back!', 'success');
+                        // Only allow login if user is active
+                        if (user.is_active) {
+                            localStorage.setItem('userData', JSON.stringify(user));
 
-                        // Redirect all users to shop.html
-                        setTimeout(function() {
-                            window.location.href = '/shop.html';
-                        }, 1500);
+                            // Dispatch events to notify header and other components
+                            if (window.refreshHeaderAuth) window.refreshHeaderAuth();
+                            window.dispatchEvent(new CustomEvent('loginSuccess', {
+                                detail: { user: user }
+                            }));
+                            window.dispatchEvent(new CustomEvent('authChanged'));
+
+                            showToast('Login successful! Welcome back!', 'success');
+                            setTimeout(function() {
+                                window.location.href = '/shop.html';
+                            }, 1500);
+                        } else {
+                            showToast('Your account is deactivated. Please contact support.', 'error');
+                        }
+                        // --- end is_active logic ---
                     } else {
                         showToast(response.message || 'Login failed. Please try again.', 'error');
                     }

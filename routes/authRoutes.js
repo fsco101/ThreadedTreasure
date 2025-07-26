@@ -108,9 +108,9 @@ router.post('/login', async (req, res) => {
       });
     }
     
-    // Find user by email
+    // Find user by email (include password for comparison)
     const [rows] = await promisePool.execute(
-      'SELECT id, name, email, password, role, is_active FROM users WHERE email = ?', 
+      'SELECT id, name, email, role, is_active, password FROM users WHERE email = ?',
       [email]
     );
     
@@ -133,7 +133,6 @@ router.post('/login', async (req, res) => {
     
     // Check password
     const isValidPassword = await bcrypt.compare(password, user.password);
-    
     if (!isValidPassword) {
       return res.status(401).json({
         success: false,
@@ -141,7 +140,6 @@ router.post('/login', async (req, res) => {
       });
     }
     
-
     // Generate JWT token
     const token = jwt.sign(
       {
