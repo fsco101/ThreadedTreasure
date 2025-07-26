@@ -50,8 +50,7 @@ app.use(`${API_VERSION}/orders`, orderRoutes);
 app.use(`${API_VERSION}/upload`, uploadRoutes);
 
 // Dashboard charts API
-const dashboardChartsRoutes = require('./routes/dashboardCharts');
-app.use(`${API_VERSION}/dashboard-charts`, dashboardChartsRoutes);
+app.use(`${API_VERSION}/dashboard-charts`, require('./routes/dashboardCharts'));
 
 // Add API documentation endpoint
 app.get(`${API_VERSION}/docs`, (req, res) => {
