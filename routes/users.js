@@ -495,7 +495,6 @@ router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
     }
 
     // Only allow updating role and is_active
-    // Always store is_active as 1 or 0 integer
     let activeValue;
     if (typeof is_active !== 'undefined') {
         if (is_active === true || is_active === 1 || is_active === '1' || is_active === 'on') {

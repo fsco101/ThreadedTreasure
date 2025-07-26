@@ -298,69 +298,11 @@ class UsersManager {
     }
 
     generateUserForm(data = null) {
-        const userRole = data ? data.role : 'user';
-        // Always treat is_active as integer 1 or 0
-        const userActive = data ? (Number(data.is_active) === 1 ? 'checked' : '') : 'checked';
-        let formHtml = '';
-        if (this.currentMode === 'add') {
-            // Full form for adding new user
-            formHtml = `
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label class="form-label fw-bold text-primary">
-                                <i class="fas fa-user me-2"></i>Full Name *
-                            </label>
-                            <input type="text" class="form-control" name="name" placeholder="Enter full name" value="${data ? data.name : ''}" required>
-                            <small class="form-text text-muted">User's complete name</small>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label class="form-label fw-bold text-primary">
-                                <i class="fas fa-envelope me-2"></i>Email *
-                            </label>
-                            <input type="email" class="form-control" name="email" placeholder="Enter email address" value="${data ? data.email : ''}" required>
-                            <small class="form-text text-muted">Must be a valid email address</small>
-                        </div>
-                    </div>
-                    <div class="col-12">
-                        <div class="mb-3">
-                            <label class="form-label fw-bold text-primary">
-                                <i class="fas fa-lock me-2"></i>Password *
-                            </label>
-                            <input type="password" class="form-control" name="password" placeholder="Enter password" required>
-                            <small class="form-text text-muted">Minimum 6 characters required</small>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label class="form-label fw-bold text-primary">
-                                <i class="fas fa-user-shield me-2"></i>Role *
-                            </label>
-                            <select class="form-select" name="role" required>
-                                <option value="user" ${userRole === 'user' ? 'selected' : ''}>Customer</option>
-                                <option value="admin" ${userRole === 'admin' ? 'selected' : ''}>Administrator</option>
-                            </select>
-                            <small class="form-text text-muted">User access level</small>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" name="is_active" id="userActiveSwitch" ${userActive}>
-                                <label class="form-check-label fw-bold text-primary" for="userActiveSwitch">
-                                    <i class="fas fa-toggle-on me-2"></i>Active Status
-                                </label>
-                            </div>
-                            <small class="form-text text-muted">Enable/disable user account</small>
-                        </div>
-                    </div>
-                </div>
-            `;
-        } else {
-            // Only allow editing role and is_active for existing users
-            formHtml = `
+        // Only allow editing role and is_active for existing users
+        if (this.currentMode === 'edit') {
+            const userRole = data ? data.role : 'user';
+            const userActive = data ? (Number(data.is_active) === 1 ? 'checked' : '') : 'checked';
+            $('#userFormFields').html(`
                 <div class="row">
                     <div class="col-md-6">
                         <div class="mb-3">
@@ -386,9 +328,8 @@ class UsersManager {
                         </div>
                     </div>
                 </div>
-            `;
+            `);
         }
-        $('#userFormFields').html(formHtml);
     }
 
     async saveUser() {

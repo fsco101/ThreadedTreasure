@@ -95,7 +95,7 @@ class UserController {
       const offset = (page - 1) * limit;
       
       const query = `
-        SELECT id, name, email, phone, address, role, created_at, updated_at 
+        SELECT id, name, email, phone, address, role, is_active, profile_photo, last_login, created_at, updated_at 
         FROM users 
         ORDER BY created_at DESC 
         LIMIT ? OFFSET ?
@@ -127,45 +127,102 @@ class UserController {
   // Update user
   static async updateUser(req, res) {
     try {
-      const { id } = req.params;
-      let { name, email, phone, address, role } = req.body;
+        const { id } = req.params;
+        let { name, email, phone, address, role, is_active } = req.body;
 
-      // Fix: Convert undefined or empty string to null for SQL compatibility
-      name = name === undefined || name === '' ? null : name;
-      email = email === undefined || email === '' ? null : email;
-      phone = phone === undefined || phone === '' ? null : phone;
-      address = address === undefined || address === '' ? null : address;
-      role = role === undefined || role === '' ? null : role;
+        // If only role and/or is_active are present, update only those
+        if (typeof role !== 'undefined' || typeof is_active !== 'undefined') {
+            // Validate role
+            if (role && !['user', 'admin'].includes(role)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid role. Must be "user" or "admin"'
+                });
+            }
+            // Parse is_active to integer
+            let activeValue;
+            if (typeof is_active !== 'undefined') {
+                if (
+                    is_active === true ||
+                    is_active === 1 ||
+                    is_active === '1' ||
+                    is_active === 'true' ||
+                    is_active === 'on'
+                ) {
+                    activeValue = 1;
+                } else {
+                    activeValue = 0;
+                }
+            }
 
-      const query = `
-        UPDATE users 
-        SET name = ?, email = ?, phone = ?, address = ?, role = ?, updated_at = NOW()
-        WHERE id = ?
-      `;
-      const [result] = await promisePool.execute(query, [name, email, phone, address, role, id]);
-      
-      if (result.affectedRows === 0) {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found'
+            // Build dynamic query
+            let query = 'UPDATE users SET ';
+            let params = [];
+            if (typeof role !== 'undefined') {
+                query += 'role = ?';
+                params.push(role);
+            }
+            if (typeof activeValue !== 'undefined') {
+                if (params.length > 0) query += ', ';
+                query += 'is_active = ?';
+                params.push(activeValue);
+            }
+            query += ', updated_at = NOW() WHERE id = ?';
+            params.push(id);
+
+            const [result] = await promisePool.execute(query, params);
+            if (result.affectedRows === 0) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'User not found'
+                });
+            }
+            // Get updated user
+            const [rows] = await promisePool.execute('SELECT * FROM users WHERE id = ?', [id]);
+            const user = rows[0];
+            delete user.password;
+            user.is_active = Number(user.is_active);
+            return res.json({
+                success: true,
+                message: 'User updated successfully',
+                data: user
+            });
+        }
+
+        // Otherwise, update profile fields (for self-update)
+        name = name === undefined || name === '' ? null : name;
+        email = email === undefined || email === '' ? null : email;
+        phone = phone === undefined || phone === '' ? null : phone;
+        address = address === undefined || address === '' ? null : address;
+        role = role === undefined || role === '' ? null : role;
+
+        const query = `
+            UPDATE users 
+            SET name = ?, email = ?, phone = ?, address = ?, role = ?, updated_at = NOW()
+            WHERE id = ?
+        `;
+        const [result] = await promisePool.execute(query, [name, email, phone, address, role, id]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        // Get updated user
+        const [rows] = await promisePool.execute('SELECT * FROM users WHERE id = ?', [id]);
+        const user = rows[0];
+        delete user.password;
+        user.is_active = Number(user.is_active);
+        res.json({
+            success: true,
+            message: 'User updated successfully',
+            data: user
         });
-      }
-      
-      // Get updated user
-      const [rows] = await promisePool.execute('SELECT * FROM users WHERE id = ?', [id]);
-      const user = rows[0];
-      delete user.password;
-      
-      res.json({
-        success: true,
-        message: 'User updated successfully',
-        data: user
-      });
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: error.message
-      });
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
     }
   }
 

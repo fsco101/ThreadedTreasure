@@ -27,7 +27,15 @@ router.post('/avatar', authenticateToken, uploadUserImage, UserController.upload
 router.get('/', authenticateToken, authorize(['admin']), UserController.getAllUsers);
 router.get('/search', authenticateToken, authorize(['admin']), UserController.searchUsers);
 router.get('/:id', authenticateToken, authorize(['admin']), UserController.getUserById);
-router.put('/:id', authenticateToken, authorize(['admin']), UserController.updateUser);
+
+// Fix: Only allow updating role and is_active for admin user update
+router.put('/:id', authenticateToken, authorize(['admin']), async (req, res) => {
+  // Only extract role and is_active from body
+  const { role, is_active } = req.body;
+  req.body = { role, is_active };
+  await UserController.updateUser(req, res);
+});
+
 router.delete('/:id', authenticateToken, authorize(['admin']), UserController.deleteUser);
 
 module.exports = router;
