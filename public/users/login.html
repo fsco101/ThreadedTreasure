@@ -289,13 +289,13 @@
             <span>or</span>
         </div>
 
-        <button type="button" class="btn btn-outline-primary" onclick="window.location.href='register.html'">
+        <button type="button" class="btn btn-outline-primary" onclick="window.location.href='users/register.html'">
             <i class="fas fa-user-plus me-2"></i>
             Create New Account
         </button>
 
         <div class="auth-links">
-            <p>Don't have an account? <a href="register.html">Sign up here</a></p>
+            <p>Don't have an account? <a href="users/register.html">Sign up here</a></p>
             <p class="text-muted small">Use your admin credentials to access admin features</p>
             <p class="text-muted small">
                 <a href="#" onclick="clearSession()" style="color: #dc3545;">Clear Session & Login Again</a>
@@ -645,5 +645,19 @@
             toast.show();
         }
     </script>
+    <div id="footer-placeholder"></div>
+<script>
+function loadComponent(placeholderId, url) {
+    fetch(url)
+        .then(res => res.text())
+        .then(html => {
+            document.getElementById(placeholderId).innerHTML = html;
+        });
+}
+document.addEventListener('DOMContentLoaded', function() {
+    loadComponent('header-placeholder', '/omponents/header.html');
+    loadComponent('footer-placeholder', '/components/footer.html');
+});
+</script>
 </body>
 </html>

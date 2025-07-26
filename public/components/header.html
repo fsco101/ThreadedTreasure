@@ -1,69 +1,32 @@
-<!-- Unified Header Component (Role-based authentication only, no token required) -->
+<!-- Unified Header Component (Navigation only, no authentication logic) -->
 <header class="main-header">
     <div class="header-content">
         <div class="logo">
             <i class="fas fa-tshirt"></i> ThreadedTreasure
         </div>
+        <button class="mobile-menu-toggle" aria-label="Toggle navigation">
+            <i class="fas fa-bars"></i>
+        </button>
         <nav class="main-nav">
             <ul class="nav-links">
                 <li class="nav-home"><a href="shop.html">Home</a></li>
-                
-                <!-- User Navigation -->
-                <li class="nav-profile" style="display:none;"><a href="profile.html">Profile</a></li>
-                <li class="nav-logout" style="display:none;"><a href="users/logout.html">Logout</a></li>
-                
-                <!-- User Dropdown -->
-                <li class="nav-user-dropdown dropdown" style="display:none;">
-                    <a href="#" class="dropdown-toggle user-dropdown-toggle action-btn user-btn" role="button">
-                        <div class="user-avatar" id="header-user-avatar">
-                            <i class="fas fa-user"></i>
-                        </div>
-                        <div class="user-info">
-                            <div class="user-name" id="header-user-name">User</div>
-                            <div class="user-email" id="header-user-email">user@example.com</div>
-                        </div>
-                        <i class="fas fa-chevron-down"></i>
-                    </a>
-                    <ul class="dropdown-menu user-dropdown-menu user-menu">
-                        <li class="user-menu-header">
-                            <div class="user-avatar-large" id="dropdown-user-avatar">
-                                <i class="fas fa-user"></i>
-                            </div>
-                            <div class="user-details">
-                                <div class="display-name" id="dropdown-user-name">User</div>
-                                <div class="display-email" id="dropdown-user-email">user@example.com</div>
-                            </div>
-                        </li>
-                        <li><a href="profile.html" class="dropdown-item">
-                            <i class="fas fa-user-circle"></i> My Profile
-                        </a></li>
-                        <li><a href="users/my-orders.html" class="dropdown-item">
-                            <i class="fas fa-shopping-bag"></i> My Orders
-                        </a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a href="users/logout.html" class="dropdown-item logout-item">
-                            <i class="fas fa-sign-out-alt"></i> Logout
-                        </a></li>
+                <li class="nav-profile"><a href="profile.html">Profile</a></li>
+                <li class="nav-my-orders"><a href="users/my-orders.html">My Orders</a></li>
+                <!-- Admin dropdown menu, hidden by default -->
+                <li class="nav-admin-dropdown" style="display:none; position:relative;">
+                    <a href="#" id="adminMenuToggle">Admin <i class="fas fa-caret-down"></i></a>
+                    <ul class="admin-dropdown-menu dropdown-menu" style="display:none;">
+                        <li><a href="admin/admin-dashboard.html">Dashboard</a></li>
+                        <li><a href="admin/categories-manager.html">Categories</a></li>
+                        <li><a href="admin/products-manager-new.html">Products</a></li>
+                        <li><a href="admin/orders-manager.html">Orders</a></li>
+                        <li><a href="admin/users-manager.html">Users</a></li>
                     </ul>
                 </li>
-                
-                <!-- Admin Dropdown -->
-                <li class="nav-admin-dropdown dropdown" style="display:none;">
-                    <a href="#" class="dropdown-toggle admin-dropdown-toggle" id="adminDropdownMenu" role="button">
-                        Admin <i class="fas fa-chevron-down"></i>
-                    </a>
-                    <ul class="dropdown-menu admin-dropdown-menu">
-                        <li class="nav-admin-dashboard"><a href="admin/admin-dashboard.html">Admin Analytics Dashboard</a></li>
-                        <li class="nav-categories-manager"><a href="admin/categories-manager.html">Categories Manager</a></li>
-                        <li class="nav-products-manager"><a href="admin/products-manager-new.html">Products Manager</a></li>
-                        <li class="nav-orders-manager"><a href="admin/orders-manager.html">Orders Manager</a></li>
-                        <li class="nav-users-manager"><a href="admin/users-manager.html">Users Manager</a></li>
-                    </ul>
-                </li>
+                <li class="nav-logout"><a href="users/logout.html">Logout</a></li>
+                <li class="nav-login"><a href="users/login.html">Login</a></li>
             </ul>
         </nav>
-        
-        <!-- Header Actions (Cart) -->
         <div class="header-actions">
             <div class="action-group">
                 <a href="cart.html" class="action-btn cart-btn">
@@ -75,6 +38,58 @@
         </div>
     </div>
 </header>
+
+<script>
+// Navigation logic: show/hide admin menu based on role, handle dropdown
+document.addEventListener('DOMContentLoaded', function () {
+    // Mobile menu toggle
+    const mobileToggle = document.querySelector('.mobile-menu-toggle');
+    const mainNav = document.querySelector('.main-nav');
+    if (mobileToggle && mainNav) {
+        mobileToggle.addEventListener('click', function () {
+            mainNav.classList.toggle('active');
+        });
+    }
+
+    // Role-based menu logic
+    let userData = {};
+    try {
+        userData = JSON.parse(localStorage.getItem('userData') || '{}');
+    } catch (e) {
+        userData = {};
+    }
+    const isActive = userData && userData.is_active === 1;
+    const role = userData && typeof userData.role === 'string' ? userData.role.trim().toLowerCase() : '';
+
+    // Hide admin menu for non-admins
+    const adminDropdown = document.querySelector('.nav-admin-dropdown');
+    if (adminDropdown) {
+        if (isActive && role === 'admin') {
+            adminDropdown.style.display = '';
+        } else {
+            adminDropdown.style.display = 'none';
+        }
+    }
+
+    // Admin dropdown functionality
+    const adminMenuToggle = document.getElementById('adminMenuToggle');
+    const adminMenu = adminDropdown ? adminDropdown.querySelector('.admin-dropdown-menu') : null;
+    if (adminMenuToggle && adminMenu) {
+        adminMenuToggle.addEventListener('click', function (e) {
+            e.preventDefault();
+            adminMenu.style.display = adminMenu.style.display === 'block' ? 'none' : 'block';
+            adminMenu.classList.toggle('show');
+        });
+        // Hide dropdown when clicking outside
+        document.addEventListener('click', function (e) {
+            if (!adminDropdown.contains(e.target)) {
+                adminMenu.style.display = 'none';
+                adminMenu.classList.remove('show');
+            }
+        });
+    }
+});
+</script>
 
 <style>
 /* Header Styles */
@@ -535,10 +550,3 @@
     }
 }
 </style>
-
-<!-- Include the header JavaScript -->
-<script src="/js/header.js"></script>
-<!--
-  NOTE: Authentication is now role-based. The header menus are shown/hidden based on the userData object in localStorage.
-  No token is required for menu display. Admin menus are shown if userData.role === 'admin' or userData.is_admin is true/1.
--->

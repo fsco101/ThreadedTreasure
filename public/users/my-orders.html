@@ -282,8 +282,7 @@
     </style>
 </head>
 <body>
-    <!-- Header -->
-
+    <div id="header-placeholder"></div>
     <!-- Page Header -->
     <div class="page-header">
         <div class="container">
@@ -428,22 +427,20 @@
     <!-- User Orders Manager -->
     <script src="../js/user-orders.js"></script>
     
-    <!-- Component Loader -->
-    <script src="../js/componentLoader.js"></script>
-    <script>
-        // Load reusable components
-        document.addEventListener('DOMContentLoaded', function() {
-            if (window.ComponentLoader) {
-                ComponentLoader.insertComponent('#header-placeholder', '../components/header.html');
-            } else {
-                fetch('../components/header.html')
-                    .then(response => response.text())
-                    .then(html => {
-                        document.getElementById('header-placeholder').innerHTML = html;
-                    })
-                    .catch(error => console.error('Error loading header:', error));
-            }
+<div id="footer-placeholder"></div>
+
+<script>
+function loadComponent(placeholderId, url) {
+    fetch(url)
+        .then(res => res.text())
+        .then(html => {
+            document.getElementById(placeholderId).innerHTML = html;
         });
-    </script>
+}
+document.addEventListener('DOMContentLoaded', function() {
+    loadComponent('header-placeholder', '/components/header.html');
+    loadComponent('footer-placeholder', '/components/footer.html');
+});
+</script>
 </body>
 </html>

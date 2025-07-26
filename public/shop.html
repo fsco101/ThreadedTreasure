@@ -913,45 +913,23 @@
         function getCurrentUser() {
             try {
                 const userData = localStorage.getItem('userData');
-                const token = localStorage.getItem('userToken');
-                
-                console.log('🔍 Debug - getCurrentUser check:');
-                console.log('- userData exists:', !!userData);
-                console.log('- token exists:', !!token);
-                console.log('- userData content:', userData);
-                console.log('- token preview:', token ? token.substring(0, 20) + '...' : 'null');
-                
-                if (!userData || !token) {
-                    console.log('❌ No userData or token found');
-                    return { id: 'guest', isGuest: true };
+                if (!userData) {
+                    return { id: 'guest', is_active: 0 };
                 }
-                
                 const user = JSON.parse(userData);
-                console.log('✅ Parsed user:', user);
-                console.log('- user.id:', user.id);
-                console.log('- user.isGuest (before):', user.isGuest);
-                console.log('- user.role:', user.role);
-                
-                // Set isGuest property based on user data
-                if (user && user.id && user.id !== 'guest') {
-                    user.isGuest = false;
-                    console.log('✅ Set isGuest = false for authenticated user');
+                if (user && user.id && user.is_active === 1) {
+                    return user;
                 } else {
-                    console.log('❌ Invalid user data, treating as guest');
-                    return { id: 'guest', isGuest: true };
+                    return { id: 'guest', is_active: 0 };
                 }
-                
-                console.log('- user.isGuest (after):', user.isGuest);
-                return user;
             } catch (error) {
-                console.error('❌ Error getting current user:', error);
-                return { id: 'guest', isGuest: true };
+                return { id: 'guest', is_active: 0 };
             }
         }
 
         // Get user-specific cart key
         function getCartKey() {
-            if (currentUser && currentUser.id && !currentUser.isGuest) {
+            if (currentUser && currentUser.id && currentUser.is_active === 1) {
                 return `cart_user_${currentUser.id}`;
             }
             return 'cart_guest'; // Fallback for guests
@@ -1620,7 +1598,7 @@ window.nextSlide = function() {
             if (!currentProduct) return;
 
             // Check if user is logged in (not guest)
-            if (!currentUser || currentUser.isGuest) {
+            if (!currentUser || currentUser.is_active !== 1) {
                 showNotification('Please log in to add items to cart', 'warning');
                 // Redirect to login
                 const returnUrl = encodeURIComponent(window.location.pathname);
@@ -1753,24 +1731,19 @@ window.nextSlide = function() {
         });
     </script>
 
-    <div id="footer-placeholder"></div>
-
-    <script src="js/componentLoader.js"></script>
-    <script>
-        // Function to refresh user context and update cart count
-        function refreshUserContext() {
-            console.log('🔄 Refreshing user context...');
-            const newUser = getCurrentUser();
-            console.log('- Previous user:', currentUser);
-            console.log('- New user:', newUser);
-            // Always update the current user context
-            currentUser = newUser;
-            console.log('✅ User context updated to:', currentUser);
-            // Update cart count for the new user context
-            updateCartCount();
-        }
-        // Make refreshUserContext available globally for header component
-        window.refreshUserContext = refreshUserContext;
-    </script>
+<div id="footer-placeholder"></div>
+<script>
+function loadComponent(placeholderId, url) {
+    fetch(url)
+        .then(res => res.text())
+        .then(html => {
+            document.getElementById(placeholderId).innerHTML = html;
+        });
+}
+document.addEventListener('DOMContentLoaded', function() {
+    loadComponent('header-placeholder', 'components/header.html');
+    loadComponent('footer-placeholder', 'components/footer.html');
+});
+</script>
 </body>
 </html>
