@@ -1356,43 +1356,23 @@
             document.getElementById('modal-product-price').textContent = `$${parseFloat(product.price).toFixed(2)}`;
             document.getElementById('modal-product-description').textContent = product.description || 'No description available.';
 
-            // Prepare image URLs
+            // Prepare image URLs (always use /uploads/products/filename)
             let imageUrls = [];
-            
-            // Add main image if exists
             if (product.main_image) {
-                // Handle both formats: "products/filename.jpg" and "/uploads/products/filename.jpg"
-                let mainImageUrl;
-                if (product.main_image.startsWith('/')) {
-                    mainImageUrl = product.main_image;
-                } else if (product.main_image.startsWith('products/')) {
-                    mainImageUrl = `/uploads/${product.main_image}`;
-                } else {
-                    mainImageUrl = `/uploads/products/${product.main_image}`;
-                }
-                imageUrls.push({ url: mainImageUrl, alt: `${product.name} - Main Image` });
+                let mainImageFile = product.main_image.replace(/^.*[\\/]/, '');
+                imageUrls.push({ url: `/uploads/products/${mainImageFile}`, alt: `${product.name} - Main Image` });
             }
-            
-            // Add additional images if they exist
             if (product.images && product.images.length > 0) {
                 product.images.forEach((img, index) => {
-                    const imagePath = img.image_path || img;
-                    // Handle both formats: "products/filename.jpg" and "/uploads/products/filename.jpg"
-                    let imageUrl;
-                    if (imagePath.startsWith('/')) {
-                        imageUrl = imagePath;
-                    } else if (imagePath.startsWith('products/')) {
-                        imageUrl = `/uploads/${imagePath}`;
-                    } else {
-                        imageUrl = `/uploads/products/${imagePath}`;
-                    }
+                    let imageFile = (img.image_path || img).replace(/^.*[\\/]/, '');
                     const altText = img.alt_text || `${product.name} - Image ${index + 1}`;
-                    
-                    // Don't add duplicate of main image
-                    if (!imageUrls.some(existingImg => existingImg.url === imageUrl)) {
-                        imageUrls.push({ url: imageUrl, alt: altText });
+                    if (!imageUrls.some(existingImg => existingImg.url === `/uploads/products/${imageFile}`)) {
+                        imageUrls.push({ url: `/uploads/products/${imageFile}`, alt: altText });
                     }
                 });
+            }
+            if (imageUrls.length === 0) {
+                imageUrls.push({ url: 'products/default.jpg', alt: 'Default Image' });
             }
 
             // Slideshow for images
@@ -1405,7 +1385,7 @@
                         </div>
                         <img src="${img.url}" alt="${img.alt}" 
                              onload="this.classList.add('loaded'); this.previousElementSibling.classList.add('hidden');" 
-                             onerror="this.style.display='none'; this.previousElementSibling.innerHTML='<i class=\\"fas fa-exclamation-triangle\\"></i>';">
+                             onerror="this.style.display='none'; this.previousElementSibling.innerHTML='<i class=\'fas fa-exclamation-triangle\'></i>';">
                     </div>
                 `).join('');
                 let controlsHtml = '';
@@ -1444,62 +1424,39 @@
             } else {
                 thumbnailGallery.innerHTML = '';
             }
-        // Slideshow logic scoped to modal
-        const modalSlideshowContainer = mainImageContainer.querySelector('.slideshow-container');
-        let modalCurrentSlideIndex = 0;
-        let modalSlides = modalSlideshowContainer ? modalSlideshowContainer.querySelectorAll('.slideshow-slide') : [];
-        let modalThumbnails = document.querySelectorAll('#modal-thumbnail-gallery .modal-thumbnail');
-        let modalSlideshowInterval = null;
 
-        window.goToSlide = function(idx) {
-            modalCurrentSlideIndex = idx;
-            modalSlides.forEach((slide, i) => {
-                slide.style.display = i === idx ? 'block' : 'none';
-            });
-            modalThumbnails.forEach((thumb, i) => {
-                thumb.classList.toggle('active', i === idx);
-            });
-        };
-        window.prevSlide = function() {
-            let idx = modalCurrentSlideIndex - 1;
-            if (idx < 0) idx = modalSlides.length - 1;
-            window.goToSlide(idx);
-        };
-        window.nextSlide = function() {
-            let idx = modalCurrentSlideIndex + 1;
-            if (idx >= modalSlides.length) idx = 0;
-            window.goToSlide(idx);
-        };
-        // Automatic slideshow interval for modal
-        if (window.slideshowInterval) clearInterval(window.slideshowInterval);
-        if (modalSlides.length > 1) {
-            window.slideshowInterval = setInterval(function() {
-                window.nextSlide();
-            }, 3500);
-        }
-// Slideshow logic
-window.currentSlideIndex = 0;
-window.slideshowImagesCount = imageUrls.length;
-window.goToSlide = function(idx) {
-    window.currentSlideIndex = idx;
-    const slides = document.querySelectorAll('.slideshow-slide');
-    slides.forEach((slide, i) => {
-        slide.style.display = i === idx ? 'block' : 'none';
-    });
-    document.querySelectorAll('.modal-thumbnail').forEach((thumb, i) => {
-        thumb.classList.toggle('active', i === idx);
-    });
-};
-window.prevSlide = function() {
-    let idx = window.currentSlideIndex - 1;
-    if (idx < 0) idx = window.slideshowImagesCount - 1;
-    window.goToSlide(idx);
-};
-window.nextSlide = function() {
-    let idx = window.currentSlideIndex + 1;
-    if (idx >= window.slideshowImagesCount) idx = 0;
-    window.goToSlide(idx);
-};
+            // Slideshow logic scoped to modal
+            const modalSlideshowContainer = mainImageContainer.querySelector('.slideshow-container');
+            let modalCurrentSlideIndex = 0;
+            let modalSlides = modalSlideshowContainer ? modalSlideshowContainer.querySelectorAll('.slideshow-slide') : [];
+            let modalThumbnails = document.querySelectorAll('#modal-thumbnail-gallery .modal-thumbnail');
+
+            window.goToSlide = function(idx) {
+                modalCurrentSlideIndex = idx;
+                modalSlides.forEach((slide, i) => {
+                    slide.style.display = i === idx ? 'block' : 'none';
+                });
+                modalThumbnails.forEach((thumb, i) => {
+                    thumb.classList.toggle('active', i === idx);
+                });
+            };
+            window.prevSlide = function() {
+                let idx = modalCurrentSlideIndex - 1;
+                if (idx < 0) idx = modalSlides.length - 1;
+                window.goToSlide(idx);
+            };
+            window.nextSlide = function() {
+                let idx = modalCurrentSlideIndex + 1;
+                if (idx >= modalSlides.length) idx = 0;
+                window.goToSlide(idx);
+            };
+            // Automatic slideshow interval for modal
+            if (window.slideshowInterval) clearInterval(window.slideshowInterval);
+            if (modalSlides.length > 1) {
+                window.slideshowInterval = setInterval(function() {
+                    window.nextSlide();
+                }, 3500);
+            }
 
             // Size options (demo data - you can customize this)
             const sizeOptions = document.getElementById('size-options');
