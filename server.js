@@ -46,7 +46,7 @@ app.use(`${API_VERSION}/auth`, authRoutes);
 app.use(`${API_VERSION}/users`, userRoutes);
 app.use(`${API_VERSION}/products`, productRoutes);
 app.use(`${API_VERSION}/categories`, categoryRoutes);
-app.use(`${API_VERSION}/orders`, orderRoutes);
+app.use('/api/orders', require('./routes/orderRoutes'));
 app.use(`${API_VERSION}/upload`, uploadRoutes);
 
 // Dashboard charts API

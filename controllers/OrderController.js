@@ -4,49 +4,36 @@ class OrderController {
   // Get user's orders
   static async getUserOrders(req, res) {
     try {
-      const userId = req.user.id;
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 10;
-      const offset = (page - 1) * limit;
+        const userId = req.user.id;
 
-      // Get orders with item count
-      const orderQuery = `
-        SELECT 
-          o.*,
-          COUNT(oi.id) as items_count
-        FROM orders o
-        LEFT JOIN order_items oi ON o.id = oi.order_id
-        WHERE o.user_id = ?
-        GROUP BY o.id
-        ORDER BY o.created_at DESC
-        LIMIT ? OFFSET ?
-      `;
-      
-      const [orders] = await promisePool.execute(orderQuery, [userId, limit, offset]);
+        // Get all orders for the user
+        const [orders] = await promisePool.execute(`
+            SELECT o.*, COUNT(oi.id) as item_count
+            FROM orders o
+            LEFT JOIN order_items oi ON o.id = oi.order_id
+            WHERE o.user_id = ?
+            GROUP BY o.id
+            ORDER BY o.created_at DESC
+        `, [userId]);
 
-      // Get total count
-      const [countResult] = await promisePool.execute(
-        'SELECT COUNT(*) as total FROM orders WHERE user_id = ?', 
-        [userId]
-      );
-      const total = countResult[0].total;
-
-      res.json({
-        success: true,
-        data: orders,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit)
+        // For each order, fetch its items
+        for (const order of orders) {
+            const [items] = await promisePool.execute(`
+                SELECT oi.*, p.name as product_name, p.main_image as product_image
+                FROM order_items oi
+                LEFT JOIN products p ON oi.product_id = p.id
+                WHERE oi.order_id = ?
+            `, [order.id]);
+            order.order_items = items;
         }
-      });
+
+        res.json({
+            success: true,
+            data: orders
+        });
     } catch (error) {
-      console.error('Error fetching user orders:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch orders'
-      });
+        console.error('Error fetching user orders:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch orders' });
     }
   }
 
@@ -237,7 +224,6 @@ class OrderController {
             // Get order items
             const [orderItems] = await connection.execute('SELECT * FROM order_items WHERE order_id = ?', [orderId]);
 
-            // Inventory logic
             const inventoryDeductedStatuses = ['processing', 'shipped', 'delivered'];
             const inventoryReturnedStatuses = ['cancelled', 'refunded'];
             const wasInventoryDeducted = inventoryDeductedStatuses.includes(currentStatus);
@@ -247,53 +233,39 @@ class OrderController {
             // Deduct inventory if transitioning to deducted status for the first time
             if (!wasInventoryDeducted && willInventoryBeDeducted) {
                 for (const item of orderItems) {
-                    // Use NULL for size/color if not provided
-                    const size = item.size ? item.size : null;
-                    const color = item.color ? item.color : null;
-
-                    // Build query dynamically for NULL values
-                    let updateQuery = `
-                        UPDATE inventory 
-                        SET quantity = quantity - ? 
-                        WHERE product_id = ? 
-                          AND quantity >= ?
-                    `;
-                    let params = [item.quantity, item.product_id, item.quantity];
-
-                    if (size === null) {
-                        updateQuery += ' AND size IS NULL';
-                    } else {
-                        updateQuery += ' AND size = ?';
-                        params.push(size);
-                    }
-
-                    if (color === null) {
-                        updateQuery += ' AND color IS NULL';
-                    } else {
-                        updateQuery += ' AND color = ?';
-                        params.push(color);
-                    }
-
-                    const [inventoryResult] = await connection.execute(updateQuery, params);
-                    if (inventoryResult.affectedRows === 0) {
+                    // Use your inventory table and default values
+                    const [result] = await connection.execute(
+                        `UPDATE inventory 
+                         SET quantity = quantity - ? 
+                         WHERE product_id = ? AND size = ? AND color = ? AND quantity >= ?`,
+                        [
+                            item.quantity,
+                            item.product_id,
+                            item.size || 'One Size',
+                            item.color || 'Default',
+                            item.quantity
+                        ]
+                    );
+                    if (result.affectedRows === 0) {
                         await connection.rollback();
                         return res.status(400).json({ success: false, message: `Insufficient stock for ${item.product_name}` });
                     }
                 }
             }
-            // Restore inventory if transitioning from deducted status to returned status
+            // Rollback inventory if transitioning from deducted status to cancelled/refunded
             else if (wasInventoryDeducted && willInventoryBeReturned) {
                 for (const item of orderItems) {
-                    await connection.execute(`
-                        UPDATE inventory 
-                        SET quantity = quantity + ? 
-                        WHERE product_id = ? AND size = ? AND color = ?
-                    `, [
-                        item.quantity,
-                        item.product_id,
-                        item.size || 'One Size',
-                        item.color || 'Default'
-                    ]);
+                    await connection.execute(
+                        `UPDATE inventory 
+                         SET quantity = quantity + ? 
+                         WHERE product_id = ? AND size = ? AND color = ?`,
+                        [
+                            item.quantity,
+                            item.product_id,
+                            item.size || 'One Size',
+                            item.color || 'Default'
+                        ]
+                    );
                 }
             }
 
@@ -310,101 +282,80 @@ class OrderController {
                 updateFields.push('delivered_at = NOW()');
             }
             updateValues.push(orderId);
-
-            const query = `UPDATE orders SET ${updateFields.join(', ')} WHERE id = ?`;
-            const [result] = await connection.execute(query, updateValues);
-
-            if (result.affectedRows === 0) {
-                await connection.rollback();
-                return res.status(404).json({ success: false, message: 'Order not found' });
+            if (!wasInventoryDeducted && willInventoryBeDeducted) {
+                for (const item of orderItems) {
+                    const [result] = await connection.execute(
+                        `UPDATE inventory 
+                         SET quantity = quantity - ? 
+                         WHERE product_id = ? AND size = ? AND color = ? AND quantity >= ?`,
+                        [
+                            item.quantity,
+                            item.product_id,
+                            item.size || 'One Size',
+                            item.color || 'Default',
+                            item.quantity
+                        ]
+                    );
+                    if (result.affectedRows === 0) {
+                        // Try to get current stock for error message
+                        const [stockCheck] = await connection.execute(
+                            `SELECT quantity FROM inventory 
+                             WHERE product_id = ? AND size = ? AND color = ?`,
+                            [
+                                item.product_id,
+                                item.size || 'One Size',
+                                item.color || 'Default'
+                            ]
+                        );
+                        const currentStock = stockCheck.length > 0 ? stockCheck[0].quantity : 0;
+                        await connection.rollback();
+                        return res.status(400).json({ success: false, message: `Insufficient stock for ${item.product_name}. Available: ${currentStock}, Required: ${item.quantity}` });
+                    }
+                }
+            } else if (wasInventoryDeducted && willInventoryBeReturned) {
+                for (const item of orderItems) {
+                    await connection.execute(
+                        `UPDATE inventory 
+                         SET quantity = quantity + ? 
+                         WHERE product_id = ? AND size = ? AND color = ?`,
+                        [
+                            item.quantity,
+                            item.product_id,
+                            item.size || 'One Size',
+                            item.color || 'Default'
+                        ]
+                    );
+                }
             }
+
+            // Update order status in the database
+            const updateQuery = `UPDATE orders SET ${updateFields.join(', ')} WHERE id = ?`;
+            await connection.execute(updateQuery, updateValues);
 
             await connection.commit();
 
-            // Get updated order
-            const [orders] = await connection.execute('SELECT * FROM orders WHERE id = ?', [orderId]);
-            connection.release();
-
             res.json({
                 success: true,
-                message: 'Order status updated successfully',
-                data: orders[0]
+                message: 'Order status updated successfully'
             });
         } catch (error) {
             await connection.rollback();
+            throw error;
+        } finally {
             connection.release();
-            console.error('Error updating order status:', error);
-            res.status(500).json({ success: false, message: error.message || 'Failed to update order status' });
         }
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        console.error('Error updating order status:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update order status'
+        });
     }
   }
 
-  // Get all orders (admin only)
-  static async getAllOrders(req, res) {
-    try {
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 20;
-      const offset = (page - 1) * limit;
-      const status = req.query.status;
 
-      let orderQuery = `
-        SELECT 
-          o.*,
-          u.name as customer_name,
-          u.email as customer_email,
-          COUNT(oi.id) as items_count
-        FROM orders o
-        LEFT JOIN users u ON o.user_id = u.id
-        LEFT JOIN order_items oi ON o.id = oi.order_id
-      `;
-
-      const queryParams = [];
-
-      if (status) {
-        orderQuery += ' WHERE o.status = ?';
-        queryParams.push(status);
-      }
-
-      orderQuery += ' GROUP BY o.id ORDER BY o.created_at DESC LIMIT ? OFFSET ?';
-      queryParams.push(limit, offset);
-
-      const [orders] = await promisePool.execute(orderQuery, queryParams);
-
-      // Get total count
-      let countQuery = 'SELECT COUNT(*) as total FROM orders';
-      const countParams = [];
-
-      if (status) {
-        countQuery += ' WHERE status = ?';
-        countParams.push(status);
-      }
-
-      const [countResult] = await promisePool.execute(countQuery, countParams);
-      const total = countResult[0].total;
-
-      res.json({
-        success: true,
-        data: orders,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit)
-        }
-      });
-    } catch (error) {
-      console.error('Error fetching all orders:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch orders'
-      });
-    }
-  }
-
-  // Cancel order
-  static async cancelOrder(req, res) {
+    // Cancel order
+    static async cancelOrder(req, res) {
     try {
       const orderId = req.params.id;
       const userId = req.user.id;

@@ -2,6 +2,8 @@ const express = require('express');
 const mysql = require('mysql2/promise');
 const jwt = require('jsonwebtoken');
 const EmailService = require('../services/emailService');
+const { authenticateToken } = require('../middleware/auth');
+const OrderController = require('../controllers/OrderController');
 const router = express.Router();
 
 // Initialize email service
@@ -13,26 +15,6 @@ const dbConfig = {
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'threadedtreasure'
-};
-
-// JWT middleware
-const authenticateToken = (req, res, next) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-
-    if (!token) {
-        return res.status(401).json({ success: false, message: 'Access token required' });
-    }
-
-    // Remove guest token logic: only allow authenticated users
-
-    jwt.verify(token, process.env.JWT_SECRET || 'your-super-secret-jwt-key', (err, user) => {
-        if (err) {
-            return res.status(403).json({ success: false, message: 'Invalid or expired token' });
-        }
-        req.user = user;
-        next();
-    });
 };
 
 // Generate order number
@@ -697,7 +679,7 @@ router.patch('/admin/:id/status', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('Admin update order status error:', error);
         res.status(500).json({ 
-            success: false, 
+            success: false,
             message: 'Failed to update order status: ' + error.message 
         });
     } finally {
@@ -734,65 +716,29 @@ router.delete('/admin/:id', authenticateToken, async (req, res) => {
 // Get user orders with detailed information for customer dashboard
 router.get('/my-orders', authenticateToken, async (req, res) => {
     const connection = await mysql.createConnection(dbConfig);
-    
     try {
-        // Get orders with items for the authenticated user
         const [orders] = await connection.execute(`
             SELECT 
                 o.id,
                 o.order_number,
                 o.status,
                 o.payment_status,
-                o.payment_method,
-                o.subtotal,
-                o.shipping_amount as shipping_cost,
-                o.tax_amount,
                 o.total_amount,
-                o.shipping_address,
-                o.notes,
-                o.created_at,
-                o.updated_at,
-                o.shipped_at,
-                o.delivered_at,
-                COUNT(oi.id) as item_count
+                o.created_at
             FROM orders o
-            LEFT JOIN order_items oi ON o.id = oi.order_id
-            WHERE o.user_id = ? AND (o.user_id != 'guest' OR o.user_id IS NOT NULL)
-            GROUP BY o.id
+            WHERE o.user_id = ?
             ORDER BY o.created_at DESC
         `, [req.user.id]);
-
-        // Get order items for each order
-        for (let order of orders) {
-            const [orderItems] = await connection.execute(`
-                SELECT 
-                    oi.id,
-                    oi.product_id,
-                    oi.product_name,
-                    oi.quantity,
-                    oi.price,
-                    oi.size,
-                    oi.color,
-                    p.image_url as product_image
-                FROM order_items oi
-                LEFT JOIN products p ON oi.product_id = p.id
-                WHERE oi.order_id = ?
-                ORDER BY oi.id
-            `, [order.id]);
-            
-            order.order_items = orderItems;
-        }
 
         res.json({
             success: true,
             data: orders
         });
-
     } catch (error) {
-        console.error('Get my orders error:', error);
+        console.error('Get orders error:', error);
         res.status(500).json({
             success: false,
-            message: 'Failed to fetch your orders'
+            message: 'Failed to fetch orders'
         });
     } finally {
         await connection.end();
