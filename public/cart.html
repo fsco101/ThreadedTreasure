@@ -264,7 +264,7 @@
 
 <body>
     
-<div id="header-placeholder"></div>
+
     <div class="cart-container">
         <div class="cart-header">
             <h1><i class="fas fa-shopping-cart"></i> Shopping Cart</h1>
@@ -314,23 +314,11 @@
         </div>
     </div>
 
-    <div id="footer-placeholder"></div>
+
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     <script src="js/cart.js"></script>
-    <script>
-function loadComponent(placeholderId, url) {
-    fetch(url)
-        .then(res => res.text())
-        .then(html => {
-            document.getElementById(placeholderId).innerHTML = html;
-        });
-}
-document.addEventListener('DOMContentLoaded', function() {
-    loadComponent('header-placeholder', 'components/header.html');
-    loadComponent('footer-placeholder', 'components/footer.html');
-});
-</script>
+
     <!-- Header and footer are loaded manually -->
 </body>
 </html>

@@ -388,7 +388,7 @@
 
 <body>
 
-<div id="header-placeholder"></div>
+
 <body>
     <!-- Dashboard Header -->
     <div class="dashboard-header">
@@ -862,23 +862,5 @@
         }
     </script>
 
-    <!-- Component Loading -->
-    <script>
-        function loadComponent(placeholderId, url) {
-            fetch(url)
-                .then(res => res.text())
-                .then(html => {
-                    const element = document.getElementById(placeholderId);
-                    if (element) {
-                        element.innerHTML = html;
-                    }
-                })
-                .catch(err => console.error(`Failed to load component ${url}:`, err));
-        }
-
-        // Load header and footer
-        loadComponent('header-placeholder', '/components/header.html');
-        loadComponent('footer-placeholder', '/components/footer.html');
-    </script>
 </body>
 </html>

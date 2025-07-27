@@ -455,7 +455,7 @@
 
 <body>
 
-    <div id="header-placeholder"></div>
+ 
 
     <!-- Admin Header Banner -->
     <div class="admin-header">
@@ -661,19 +661,5 @@
     <script src="../js/orders-manager.js"></script>
     
 
-    <div id="footer-placeholder"></div>
-<script>
-function loadComponent(placeholderId, url) {
-    fetch(url)
-        .then(res => res.text())
-        .then(html => {
-            document.getElementById(placeholderId).innerHTML = html;
-        });
-}
-document.addEventListener('DOMContentLoaded', function() {
-    loadComponent('header-placeholder', '/components/header.html');
-    loadComponent('footer-placeholder', '/components/footer.html');
-});
-</script>
 </body>
 </html>
