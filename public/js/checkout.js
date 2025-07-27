@@ -324,32 +324,6 @@ class CheckoutManager {
             phone: phone
         });
     }
-    autoFillShippingFormFromUser() {
-        // Only autofill name, not address or phone
-        const user = this.currentUser;
-        if (!user || user.isGuest) return;
-        const fullNameField = document.getElementById('fullName');
-        if (fullNameField) {
-            fullNameField.value = user.name || '';
-            fullNameField.readOnly = true;
-        }
-        // Leave address and phone empty and editable
-        const address1Field = document.getElementById('address1');
-        if (address1Field) {
-            address1Field.value = '';
-            address1Field.readOnly = false;
-        }
-        const phoneField = document.getElementById('phone');
-        if (phoneField) {
-            phoneField.value = '';
-            phoneField.readOnly = false;
-        }
-        console.log('Form auto-filled with:', {
-            fullName: user.name,
-            address: '',
-            phone: ''
-        });
-    }
 
     renderSavedAddresses(addresses) {
         const container = document.getElementById('saved-addresses');
@@ -645,16 +619,27 @@ async placeOrder() {
     if (spinner) spinner.style.display = 'inline-block';
     
     try {
+        // Transform cart items to match API expectations
+        const transformedItems = this.cart.map(item => ({
+            id: item.id || item.product_id,
+            product_id: item.id || item.product_id,
+            name: item.name,
+            product_name: item.name,
+            size: item.size || 'M',
+            color: item.color || 'Default',
+            quantity: item.quantity || 1,
+            price: item.price || 0,
+            unit_price: item.price || 0
+        }));
+
         const orderData = {
-            userId: this.currentUser.id,
-            items: this.cart,
+            items: transformedItems,
             shippingAddress: shippingInfo,
             paymentMethod: this.paymentMethod,
             subtotal: this.subtotal,
             shipping: this.shipping,
             tax: this.tax,
-            total: this.total,
-            orderDate: new Date().toISOString()
+            total: this.total
         };
         
         console.log('Placing order with data:', orderData);
@@ -669,39 +654,81 @@ async placeOrder() {
             body: JSON.stringify(orderData)
         });
         
-        const responseText = await response.text();
-        console.log('Order response:', response.status, responseText);
+        console.log('Order response status:', response.status);
+        console.log('Order response headers:', response.headers);
         
-
+        let responseText;
+        try {
+            responseText = await response.text();
+            console.log('Order response text:', responseText);
+        } catch (e) {
+            console.error('Failed to read response text:', e);
+            responseText = '';
+        }
+        
         if (!response.ok) {
             console.error('Order API error:', response.status, responseText);
-            this.showError('Failed to save order. Please try again later. (Debug: ' + responseText + ')');
+            this.showError(`Failed to save order. Server responded with: ${response.status} - ${responseText}`);
             button.disabled = false;
             if (spinner) spinner.style.display = 'none';
             return;
         }
 
+        // Parse successful response
         let result;
         try {
-            result = JSON.parse(responseText);
+            if (!responseText.trim()) {
+                console.warn('Empty response received from server');
+                result = {
+                    success: true,
+                    order: {
+                        orderNumber: 'TT' + Date.now(),
+                        paymentMethod: this.paymentMethod,
+                        total: this.total
+                    }
+                };
+            } else {
+                result = JSON.parse(responseText);
+                console.log('Parsed response:', result);
+            }
         } catch (e) {
-            this.showError('Order placed, but response was invalid. Please check your order history.');
+            console.error('JSON parse error:', e, 'Response text:', responseText);
+            this.showError('Order submission error: Invalid server response. Please try again.');
             button.disabled = false;
             if (spinner) spinner.style.display = 'none';
             return;
         }
 
-        this.orderData = result.order || { 
-            orderNumber: 'TT' + Date.now(),
-            paymentMethod: this.paymentMethod,
-            total: this.total
-        };
+        // Handle successful order
+        if (result && result.success) {
+            this.orderData = result.order || result.data || { 
+                orderNumber: result.orderNumber || 'TT' + Date.now(),
+                paymentMethod: this.paymentMethod,
+                total: this.total
+            };
+        } else if (result && result.order) {
+            this.orderData = result.order;
+        } else {
+            // Fallback order data if response structure is unexpected
+            this.orderData = {
+                orderNumber: 'TT' + Date.now(),
+                paymentMethod: this.paymentMethod,
+                total: this.total
+            };
+        }
+
+        // Store original totals in orderData for receipt display
+        this.orderData.subtotal = this.subtotal;
+        this.orderData.shipping = this.shipping;
+        this.orderData.tax = this.tax;
+        this.orderData.total = this.total;
+        this.orderData.items = [...this.cart]; // Store copy of cart items
 
         console.log('Order placed successfully:', this.orderData);
         
-        // Clear the cart completely before showing success
-        console.log('Clearing cart after successful order...');
-        this.clearCart();
+        // Clear all checkout data completely
+        console.log('Clearing all checkout data after successful order...');
+        this.clearAllCheckoutData();
         
         // Update display to show order completion
         this.currentStep = 4;
@@ -709,17 +736,35 @@ async placeOrder() {
         this.updateProgress();
         this.showOrderConfirmation();
         
-        // Double-check cart is cleared and force UI update
+        // Double-check everything is cleared and force UI update
         setTimeout(() => {
-            this.clearCart();
-            console.log('Cart double-checked and cleared');
+            this.clearAllCheckoutData();
+            console.log('All checkout data double-checked and cleared');
         }, 500);
 
         button.disabled = false;
         if (spinner) spinner.style.display = 'none';
+        
+        console.log('Order completion process finished successfully');
     } catch (error) {
-        console.error('Order error:', error);
-        this.showError('Failed to save order. Please try again later.');
+        console.error('Order placement error:', error);
+        console.error('Error details:', {
+            message: error.message,
+            stack: error.stack,
+            currentUser: this.currentUser,
+            cartLength: this.cart.length,
+            apiUrl: `${API_BASE_URL}/orders`
+        });
+        
+        // Check if it's a network error
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+            this.showError('Network error: Please check your internet connection and server status.');
+        } else if (error.message.includes('Failed to fetch')) {
+            this.showError('Server connection failed: Please make sure the server is running on port 3000.');
+        } else {
+            this.showError(`Order failed: ${error.message}. Please try again.`);
+        }
+        
         button.disabled = false;
         if (spinner) spinner.style.display = 'none';
     }
@@ -733,14 +778,26 @@ async placeOrder() {
         const shippingInfo = this.getShippingInfo();
         const paymentInfo = this.getPaymentInfo();
         
-        const itemsHTML = this.cart.map(item => `
+        // Preserve the original order totals for the receipt
+        const originalSubtotal = this.orderData.subtotal || this.subtotal;
+        const originalShipping = this.orderData.shipping || this.shipping;
+        const originalTax = this.orderData.tax || this.tax;
+        const originalTotal = this.orderData.total || this.total;
+        
+        const itemsHTML = (this.orderData.items || this.cart).map(item => `
             <div style="border-bottom: 1px solid #eee; padding: 10px 0;">
                 <strong>${item.name}</strong> - Qty: ${item.quantity} - $${(item.price * item.quantity).toFixed(2)}
                 <br><small style="color: #666;">Size: ${item.size} | Color: ${item.color}</small>
             </div>
         `).join('');
         
-        document.getElementById('order-confirmation').innerHTML = `
+        const stepCompleteElement = document.getElementById('step-complete');
+        if (!stepCompleteElement) {
+            console.error('step-complete element not found in DOM');
+            return;
+        }
+        
+        stepCompleteElement.innerHTML = `
             <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
                 <div style="text-align: center; margin-bottom: 20px;">
                     <i class="fas fa-check-circle" style="font-size: 3rem; color: #28a745; margin-bottom: 10px;"></i>
@@ -768,29 +825,39 @@ async placeOrder() {
                 <div style="background: #f8f9fa; padding: 15px; border-radius: 6px;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
                         <span>Subtotal:</span>
-                        <span>$${this.subtotal.toFixed(2)}</span>
+                        <span>$${originalSubtotal.toFixed(2)}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
                         <span>Shipping:</span>
-                        <span>$${this.shipping.toFixed(2)}</span>
+                        <span>$${originalShipping.toFixed(2)}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
                         <span>Tax:</span>
-                        <span>$${this.tax.toFixed(2)}</span>
+                        <span>$${originalTax.toFixed(2)}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; border-top: 2px solid #667eea; padding-top: 10px; font-size: 1.2rem; font-weight: bold;">
                         <span>Total:</span>
-                        <span style="color: #667eea;">$${this.total.toFixed(2)}</span>
+                        <span style="color: #667eea;">$${originalTotal.toFixed(2)}</span>
                     </div>
                 </div>
                 
-                ${this.getPaymentInstructions()}
+                ${this.getPaymentInstructions(originalTotal)}
+                
+                <div style="margin-top: 30px; text-align: center; border-top: 1px solid #ddd; padding-top: 20px;">
+                    <button onclick="startNewOrder()" class="btn btn-primary" style="background: #3182ce; border: none; padding: 12px 24px; border-radius: 6px; margin-right: 10px;">
+                        <i class="fas fa-shopping-cart"></i> Start New Order
+                    </button>
+                    <button onclick="goToOrders()" class="btn btn-outline-primary" style="border: 2px solid #3182ce; color: #3182ce; background: white; padding: 12px 24px; border-radius: 6px; margin-left: 10px;">
+                        <i class="fas fa-list"></i> View My Orders
+                    </button>
+                </div>
             </div>
         `;
     }
 
-    getPaymentInstructions() {
+    getPaymentInstructions(orderTotal = null) {
         const paymentMethod = this.paymentMethod || 'cod';
+        const totalAmount = orderTotal || this.total;
         
         switch (paymentMethod) {
             case 'cod':
@@ -798,7 +865,7 @@ async placeOrder() {
                     <div style="background: #e7f3ff; border: 1px solid #b3d9ff; border-radius: 6px; padding: 15px; margin-top: 20px;">
                         <h6 style="color: #0066cc; margin-bottom: 10px;"><i class="fas fa-info-circle"></i> Payment Instructions</h6>
                         <p style="margin: 0; color: #333;">
-                            <strong>Cash on Delivery:</strong> Please prepare the exact amount of <strong>$${this.total.toFixed(2)}</strong> 
+                            <strong>Cash on Delivery:</strong> Please prepare the exact amount of <strong>$${totalAmount.toFixed(2)}</strong> 
                             for payment upon delivery. A valid ID may be required.
                         </p>
                     </div>
@@ -808,7 +875,7 @@ async placeOrder() {
                     <div style="background: #e7f3ff; border: 1px solid #b3d9ff; border-radius: 6px; padding: 15px; margin-top: 20px;">
                         <h6 style="color: #0066cc; margin-bottom: 10px;"><i class="fas fa-info-circle"></i> Payment Instructions</h6>
                         <p style="margin-bottom: 10px; color: #333;">
-                            <strong>Bank Transfer:</strong> Please transfer <strong>$${this.total.toFixed(2)}</strong> to:
+                            <strong>Bank Transfer:</strong> Please transfer <strong>$${totalAmount.toFixed(2)}</strong> to:
                         </p>
                         <div style="background: white; padding: 10px; border-radius: 4px;">
                             <strong>Bank:</strong> ThreadedTreasure Bank<br>
@@ -826,7 +893,7 @@ async placeOrder() {
                     <div style="background: #e7f3ff; border: 1px solid #b3d9ff; border-radius: 6px; padding: 15px; margin-top: 20px;">
                         <h6 style="color: #0066cc; margin-bottom: 10px;"><i class="fas fa-info-circle"></i> Payment Instructions</h6>
                         <p style="margin-bottom: 10px; color: #333;">
-                            <strong>GCash Payment:</strong> Please send <strong>$${this.total.toFixed(2)}</strong> to:
+                            <strong>GCash Payment:</strong> Please send <strong>$${totalAmount.toFixed(2)}</strong> to:
                         </p>
                         <div style="background: white; padding: 10px; border-radius: 4px;">
                             <strong>GCash Number:</strong> +63 912 345 6789<br>
@@ -892,6 +959,164 @@ async placeOrder() {
         });
         
         console.log('Cart count updated to 0');
+    }
+
+    clearAllCheckoutData() {
+        console.log('Clearing all checkout data...');
+        
+        // 1. Clear cart data
+        this.clearCart();
+        
+        // 2. Clear all form data
+        this.clearAllForms();
+        
+        // 3. Reset checkout state
+        this.resetCheckoutState();
+        
+        // 4. Clear selected options
+        this.clearSelections();
+        
+        // 5. Clear temporary/session data
+        this.clearTemporaryData();
+        
+        // 6. Update UI displays
+        this.updateAllDisplays();
+        
+        console.log('All checkout data cleared successfully');
+    }
+
+    clearAllForms() {
+        // Clear shipping form
+        const shippingForm = document.getElementById('shipping-form');
+        if (shippingForm) {
+            shippingForm.reset();
+            // Clear validation errors
+            if (typeof $.fn.validate !== 'undefined') {
+                $(shippingForm).validate().resetForm();
+                $(shippingForm).find('.error').removeClass('error');
+            }
+        }
+        
+        // Clear individual form fields
+        const formFields = [
+            'fullName', 'address1', 'address2', 'city', 'state', 'zipCode', 'phone'
+        ];
+        
+        formFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                field.value = '';
+                field.readOnly = false;
+                field.classList.remove('error', 'valid');
+            }
+        });
+        
+        // Clear any error messages
+        const errorLabels = document.querySelectorAll('label.error');
+        errorLabels.forEach(label => label.remove());
+        
+        console.log('All forms cleared');
+    }
+
+    resetCheckoutState() {
+        // Reset checkout properties but preserve orderData for receipt display
+        this.selectedAddress = null;
+        this.paymentMethod = 'cod'; // Reset to default
+        // Keep this.orderData intact for receipt display
+        this.subtotal = 0;
+        this.shipping = 0;
+        this.tax = 0;
+        this.total = 0;
+        
+        console.log('Checkout state reset (order data preserved for receipt)');
+    }
+
+    clearSelections() {
+        // Clear address selections
+        const addressOptions = document.querySelectorAll('.address-option');
+        addressOptions.forEach(option => {
+            option.classList.remove('selected');
+        });
+        
+        const addressRadios = document.querySelectorAll('input[name="selectedAddress"]');
+        addressRadios.forEach(radio => {
+            radio.checked = false;
+        });
+        
+        // Clear payment method selections
+        const paymentRadios = document.querySelectorAll('input[name="paymentMethod"]');
+        paymentRadios.forEach(radio => {
+            radio.checked = false;
+        });
+        
+        // Reset to default payment method (COD)
+        const codRadio = document.querySelector('input[name="paymentMethod"][value="cod"]');
+        if (codRadio) {
+            codRadio.checked = true;
+            this.paymentMethod = 'cod';
+        }
+        
+        // Clear payment method visual selections (if any)
+        const paymentMethods = document.querySelectorAll('.payment-method');
+        paymentMethods.forEach(method => {
+            method.classList.remove('selected');
+        });
+        
+        console.log('All selections cleared');
+    }
+
+    clearTemporaryData() {
+        // Clear any checkout-related session storage
+        const sessionKeysToRemove = [];
+        for (let i = 0; i < sessionStorage.length; i++) {
+            const key = sessionStorage.key(i);
+            if (key && (key.includes('checkout') || key.includes('order') || key.includes('shipping'))) {
+                sessionKeysToRemove.push(key);
+            }
+        }
+        sessionKeysToRemove.forEach(key => sessionStorage.removeItem(key));
+        
+        // Clear any temporary order data from localStorage
+        const tempKeysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && (key.includes('temp_order') || key.includes('checkout_temp'))) {
+                tempKeysToRemove.push(key);
+            }
+        }
+        tempKeysToRemove.forEach(key => localStorage.removeItem(key));
+        
+        // Clear any form validation classes/states
+        const allInputs = document.querySelectorAll('input, select, textarea');
+        allInputs.forEach(input => {
+            input.classList.remove('error', 'valid', 'is-invalid', 'is-valid');
+        });
+        
+        console.log('Temporary data cleared');
+    }
+
+    updateAllDisplays() {
+        // Update order summary to show zero values (but keep receipt intact)
+        this.updateOrderSummary();
+        
+        // Update cart display to show empty
+        this.renderCartItems();
+        
+        // Update cart count
+        this.updateCartCount();
+        
+        // Clear any success/error messages
+        const errorDiv = document.getElementById('error-message');
+        if (errorDiv) errorDiv.remove();
+        
+        // DO NOT clear order confirmation - keep the receipt visible
+        // Only clear other confirmation elements that are not the main order receipt
+        const otherConfirmations = document.querySelectorAll('[id*="confirmation"]:not(#order-confirmation):not(#step-complete)');
+        otherConfirmations.forEach(element => {
+            if (element.innerHTML) element.innerHTML = '';
+        });
+        
+        console.log('Order summary cleared but receipt preserved');
     }
 
     showError(message) {
@@ -1118,6 +1343,64 @@ function debugCheckout() {
     }
 }
 
+function debugOrderData() {
+    if (checkout) {
+        console.log('=== Order Data Debug ===');
+        const shippingInfo = checkout.getShippingInfo();
+        const transformedItems = checkout.cart.map(item => ({
+            id: item.id || item.product_id,
+            product_id: item.id || item.product_id,
+            name: item.name,
+            product_name: item.name,
+            size: item.size || 'M',
+            color: item.color || 'Default',
+            quantity: item.quantity || 1,
+            price: item.price || 0,
+            unit_price: item.price || 0
+        }));
+        
+        const orderData = {
+            items: transformedItems,
+            shippingAddress: shippingInfo,
+            paymentMethod: checkout.paymentMethod,
+            subtotal: checkout.subtotal,
+            shipping: checkout.shipping,
+            tax: checkout.tax,
+            total: checkout.total
+        };
+        
+        console.log('Order data that would be sent:', orderData);
+        console.log('User token:', localStorage.getItem('userToken') ? 'Present' : 'Missing');
+        console.log('API URL:', `${API_BASE_URL}/orders`);
+        console.log('=== End Order Data Debug ===');
+    }
+}
+
+function startNewOrder() {
+    if (checkout) {
+        console.log('Starting new order - clearing all data and resetting to step 1');
+        
+        // Clear all checkout data
+        checkout.clearAllCheckoutData();
+        
+        // Reset to first step
+        checkout.currentStep = 1;
+        checkout.updateStepDisplay();
+        checkout.updateProgress();
+        
+        // Reload cart items (should be empty)
+        checkout.loadCartItems();
+        
+        // Redirect to shop to add items
+        window.location.href = 'shop.html';
+    }
+}
+
+function goToOrders() {
+    // Redirect to user orders page
+    window.location.href = 'users/my-orders.html';
+}
+
 // Initialize checkout when DOM and jQuery are loaded
 let checkout;
 $(document).ready(function() {
@@ -1130,7 +1413,7 @@ $(document).ready(function() {
         // Fallback to basic initialization
         checkout = new CheckoutManager();
     }
-    // Ensure jQuery validation is available
+    // Ensure jQuery validation is available and auto-fill user data
     if (typeof $.validator !== 'undefined') {
         if (checkout) checkout.autoFillShippingFormFromUser();
     } else {
