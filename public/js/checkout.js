@@ -64,6 +64,29 @@ class CheckoutManager {
         console.log('Cart key:', this.getCartKey());
     }
 
+    // Method to check product inventory
+    async checkProductInventory(productId) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/inventory/products/${productId}`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('userToken') || ''}`
+                }
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success && result.data) {
+                    // Return total stock quantity for the product (sum of all size/color combinations)
+                    return result.data.total_stock || 0;
+                }
+            }
+            return 0;
+        } catch (error) {
+            console.error('Error checking inventory:', error);
+            return 0;
+        }
+    }
+
     initializeValidation() {
         // Initialize jQuery validation for shipping form only
         $('#shipping-form').validate({
@@ -619,6 +642,19 @@ async placeOrder() {
     if (spinner) spinner.style.display = 'inline-block';
     
     try {
+        // Validate inventory before placing order
+        console.log('🔍 Validating inventory before placing order...');
+        for (const item of this.cart) {
+            const availableStock = await this.checkProductInventory(item.id);
+            if (item.quantity > availableStock) {
+                button.disabled = false;
+                if (spinner) spinner.style.display = 'none';
+                this.showError(`Insufficient stock for ${item.name}. Available: ${availableStock}, Requested: ${item.quantity}. Please update your cart.`);
+                return;
+            }
+        }
+        console.log('✅ Inventory validation passed');
+
         // Transform cart items to match API expectations
         const transformedItems = this.cart.map(item => ({
             id: item.id || item.product_id,

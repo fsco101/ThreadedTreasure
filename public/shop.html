@@ -1307,6 +1307,29 @@
         let allCategories = [];
         let currentUser = null;
 
+        // Function to check product inventory
+        async function checkProductInventory(productId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/inventory/products/${productId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('userToken') || ''}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success && result.data) {
+                        // Return total stock quantity for the product (sum of all size/color combinations)
+                        return result.data.total_stock || 0;
+                    }
+                }
+                return 0;
+            } catch (error) {
+                console.error('Error checking inventory:', error);
+                return 0;
+            }
+        }
+
         // Get current user information
         function getCurrentUser() {
             try {
@@ -1539,7 +1562,7 @@
             renderProducts(filteredProducts);
         }
 
-        function addToCart(productId) {
+        async function addToCart(productId) {
             console.log('🛒 addToCart called for product:', productId);
             const product = allProducts.find(p => p.id === productId);
             if (!product) {
@@ -1567,6 +1590,40 @@
             const size = 'M';
             const color = 'Default';
 
+            // Check inventory before adding to cart
+            const availableStock = await checkProductInventory(productId);
+            console.log(`📦 Available stock for product ${productId}: ${availableStock}`);
+
+            // Get or create user-specific cart
+            let cart = [];
+            try {
+                const cartKey = getCartKey();
+                const cartData = localStorage.getItem(cartKey);
+                if (cartData) {
+                    cart = JSON.parse(cartData);
+                }
+                console.log(`Loading cart for user ${currentUser.id}:`, cart);
+            } catch (error) {
+                console.error('Error loading cart:', error);
+            }
+
+            // Check current quantity in cart
+            const existingItem = cart.find(item => 
+                item.id === productId && item.size === size && item.color === color
+            );
+
+            const currentQuantityInCart = existingItem ? existingItem.quantity : 0;
+            const newTotalQuantity = currentQuantityInCart + 1;
+
+            if (newTotalQuantity > availableStock) {
+                if (availableStock === 0) {
+                    showNotification('This item is out of stock', 'warning');
+                } else {
+                    showNotification(`Cannot add more. Only ${availableStock} units available and ${currentQuantityInCart} already in cart.`, 'warning');
+                }
+                return;
+            }
+
             // Get product image URL
             let imageUrl = 'products/default.jpg';
             if (product.main_image) {
@@ -1590,24 +1647,7 @@
                 }
             }
 
-            // Get or create user-specific cart
-            let cart = [];
-            try {
-                const cartKey = getCartKey();
-                const cartData = localStorage.getItem(cartKey);
-                if (cartData) {
-                    cart = JSON.parse(cartData);
-                }
-                console.log(`Loading cart for user ${currentUser.id}:`, cart);
-            } catch (error) {
-                console.error('Error loading cart:', error);
-            }
-
-            // Check if item already exists in cart
-            const existingItem = cart.find(item => 
-                item.id === productId && item.size === size && item.color === color
-            );
-
+            // Add item to cart
             if (existingItem) {
                 existingItem.quantity += 1;
             } else {
@@ -2004,7 +2044,7 @@
             quantityInput.value = newQuantity;
         }
 
-        function addToCartFromModal() {
+        async function addToCartFromModal() {
             if (!currentProduct) return;
 
             // Check if user is logged in (not guest)
@@ -2017,6 +2057,44 @@
             }
 
             const quantity = parseInt(document.getElementById('modal-quantity').value);
+            
+            // Check inventory before adding to cart
+            const availableStock = await checkProductInventory(currentProduct.id);
+            console.log(`📦 Available stock for product ${currentProduct.id}: ${availableStock}`);
+
+            // Get or create user-specific cart
+            let cart = [];
+            try {
+                const cartKey = getCartKey();
+                const cartData = localStorage.getItem(cartKey);
+                if (cartData) {
+                    cart = JSON.parse(cartData);
+                }
+            } catch (error) {
+                console.error('Error loading cart:', error);
+            }
+
+            // Check current quantity in cart
+            const existingItem = cart.find(item => 
+                item.id === currentProduct.id && item.size === (selectedSize || 'M') && item.color === (selectedColor || 'Default')
+            );
+
+            const currentQuantityInCart = existingItem ? existingItem.quantity : 0;
+            const newTotalQuantity = currentQuantityInCart + quantity;
+
+            if (newTotalQuantity > availableStock) {
+                if (availableStock === 0) {
+                    showNotification('This item is out of stock', 'warning');
+                } else {
+                    const maxCanAdd = Math.max(0, availableStock - currentQuantityInCart);
+                    if (maxCanAdd === 0) {
+                        showNotification(`Cannot add more. Only ${availableStock} units available and ${currentQuantityInCart} already in cart.`, 'warning');
+                    } else {
+                        showNotification(`Can only add ${maxCanAdd} more units. ${availableStock} available, ${currentQuantityInCart} already in cart.`, 'warning');
+                    }
+                }
+                return;
+            }
             
             // Get product image URL
             let imageUrl = 'products/default.jpg';
@@ -2040,24 +2118,8 @@
                     imageUrl = `products/${firstImage}`;
                 }
             }
-            
-            // Get or create user-specific cart
-            let cart = [];
-            try {
-                const cartKey = getCartKey();
-                const cartData = localStorage.getItem(cartKey);
-                if (cartData) {
-                    cart = JSON.parse(cartData);
-                }
-            } catch (error) {
-                console.error('Error loading cart:', error);
-            }
 
             // Check if item already exists in cart with same size/color
-            const existingItem = cart.find(item => 
-                item.id === currentProduct.id && item.size === selectedSize && item.color === selectedColor
-            );
-
             if (existingItem) {
                 existingItem.quantity += quantity;
             } else {
@@ -2066,8 +2128,8 @@
                     name: currentProduct.name,
                     price: parseFloat(currentProduct.price),
                     quantity: quantity,
-                    size: selectedSize,
-                    color: selectedColor,
+                    size: selectedSize || 'M',
+                    color: selectedColor || 'Default',
                     image: imageUrl
                 });
             }
@@ -2079,7 +2141,7 @@
                 console.log(`Saved cart from modal for user ${currentUser.id}:`, cart);
                 
                 // Show success message
-                showNotification(`${currentProduct.name} (${selectedSize}, ${selectedColor}) added to cart!`, 'success');
+                showNotification(`${currentProduct.name} (${selectedSize || 'M'}, ${selectedColor || 'Default'}) added to cart!`, 'success');
                 
                 // Update cart count
                 updateCartCount();

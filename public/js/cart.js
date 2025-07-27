@@ -186,7 +186,30 @@ class CartManager {
         document.getElementById('total').textContent = `$${this.total.toFixed(2)}`;
     }
 
-    updateQuantity(itemId, newQuantity) {
+    // New method to check product inventory
+    async checkProductInventory(productId) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/inventory/products/${productId}`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('userToken') || ''}`
+                }
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success && result.data) {
+                    // Return total stock quantity for the product (sum of all size/color combinations)
+                    return result.data.total_stock || 0;
+                }
+            }
+            return 0;
+        } catch (error) {
+            console.error('Error checking inventory:', error);
+            return 0;
+        }
+    }
+
+    async updateQuantity(itemId, newQuantity) {
         newQuantity = parseInt(newQuantity);
         
         if (newQuantity < 1) {
@@ -201,6 +224,14 @@ class CartManager {
 
         const item = this.cart.find(item => item.id === itemId);
         if (item) {
+            // Check inventory before updating quantity (product level only)
+            const availableStock = await this.checkProductInventory(item.id);
+            
+            if (newQuantity > availableStock) {
+                this.showMessage(`Only ${availableStock} units available in stock`, 'warning');
+                return;
+            }
+
             item.quantity = newQuantity;
             this.saveCart();
             this.calculateTotals();
@@ -221,10 +252,27 @@ class CartManager {
         }
     }
 
-    addItem(product, size, color, quantity = 1) {
+    async addItem(product, size, color, quantity = 1) {
+        // Check inventory before adding item (product level only)
+        const availableStock = await this.checkProductInventory(product.id);
+        
         const existingItem = this.cart.find(item => 
             item.id === product.id && item.size === size && item.color === color
         );
+
+        const currentQuantityInCart = existingItem ? existingItem.quantity : 0;
+        const newTotalQuantity = currentQuantityInCart + quantity;
+
+        if (newTotalQuantity > availableStock) {
+            const maxCanAdd = Math.max(0, availableStock - currentQuantityInCart);
+            if (maxCanAdd === 0) {
+                this.showMessage(`Cannot add more. Only ${availableStock} units available and ${currentQuantityInCart} already in cart.`, 'warning');
+                return;
+            } else {
+                this.showMessage(`Can only add ${maxCanAdd} more units. ${availableStock} available, ${currentQuantityInCart} already in cart.`, 'warning');
+                quantity = maxCanAdd; // Adjust quantity to maximum possible
+            }
+        }
 
         // Handle image path properly
         let imagePath = null;
@@ -357,8 +405,8 @@ class CartManager {
 }
 
 // Global functions for HTML onclick handlers
-function updateQuantity(itemId, quantity) {
-    cart.updateQuantity(itemId, quantity);
+async function updateQuantity(itemId, quantity) {
+    await cart.updateQuantity(itemId, quantity);
 }
 
 function removeItem(itemId) {
