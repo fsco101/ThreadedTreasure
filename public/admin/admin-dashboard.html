@@ -127,6 +127,90 @@
             gap: 0.5rem;
         }
 
+        /* Chart Filter Styles */
+        .chart-filters {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .chart-filters .btn-group .btn {
+            font-size: 0.875rem;
+            padding: 0.4rem 0.8rem;
+            border-radius: 0.375rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .chart-filters .btn-group .btn:first-child {
+            border-top-left-radius: 0.5rem;
+            border-bottom-left-radius: 0.5rem;
+        }
+
+        .chart-filters .btn-group .btn:last-child {
+            border-top-right-radius: 0.5rem;
+            border-bottom-right-radius: 0.5rem;
+        }
+
+        .chart-filters .btn-outline-primary {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            background: transparent;
+        }
+
+        .chart-filters .btn-outline-primary:hover {
+            background: var(--primary-color);
+            color: white;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .chart-filters .btn-primary.active {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border-color: var(--primary-color);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .chart-filters .filter-btn.active {
+            transform: translateY(-2px);
+        }
+
+        .chart-loading {
+            position: relative;
+        }
+
+        .chart-loading::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            border-radius: 15px;
+        }
+
+        .chart-loading::before {
+            content: 'Updating chart...';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 11;
+            color: var(--primary-color);
+            font-weight: 600;
+            background: white;
+            padding: 1rem 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
         .chart-wrapper {
             position: relative;
             height: 400px;
@@ -256,6 +340,48 @@
                 bottom: 20px;
                 right: 20px;
             }
+            
+            /* Mobile responsive chart filters */
+            .chart-filters {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.5rem;
+            }
+            
+            .chart-filters .btn-group {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.25rem;
+            }
+            
+            .chart-filters .btn-group .btn {
+                flex: 1;
+                min-width: 0;
+                font-size: 0.75rem;
+                padding: 0.3rem 0.5rem;
+            }
+            
+            .chart-container .d-flex {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 1rem;
+            }
+            
+            .chart-container h3 {
+                margin-bottom: 0;
+                text-align: center;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .chart-filters .btn-group .btn {
+                font-size: 0.7rem;
+                padding: 0.25rem 0.4rem;
+            }
+            
+            .chart-filters .btn-group .btn i {
+                display: none; /* Hide icons on very small screens */
+            }
         }
     </style>
 </head>
@@ -354,11 +480,33 @@
                     <div class="loading-overlay" id="salesChartLoading">
                         <div class="loading-spinner"></div>
                     </div>
-                    <h3>
-                        <i class="fas fa-chart-line text-primary me-2"></i>
-                        Sales Trends
-                        <small class="text-muted ms-2">(Last 12 Months)</small>
-                    </h3>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h3 class="mb-0">
+                            <i class="fas fa-chart-line text-primary me-2"></i>
+                            Sales Trends
+                        </h3>
+                        
+                        <!-- Sales Chart Filter Controls -->
+                        <div class="chart-filters">
+                            <div class="btn-group" role="group" aria-label="Sales chart time filters">
+                                <button type="button" class="btn btn-outline-primary btn-sm filter-btn" data-period="daily" onclick="updateSalesChart('daily')">
+                                    <i class="fas fa-calendar-day me-1"></i>Daily
+                                </button>
+                                <button type="button" class="btn btn-outline-primary btn-sm filter-btn" data-period="weekly" onclick="updateSalesChart('weekly')">
+                                    <i class="fas fa-calendar-week me-1"></i>Weekly
+                                </button>
+                                <button type="button" class="btn btn-primary btn-sm filter-btn active" data-period="monthly" onclick="updateSalesChart('monthly')">
+                                    <i class="fas fa-calendar-alt me-1"></i>Monthly
+                                </button>
+                                <button type="button" class="btn btn-outline-primary btn-sm filter-btn" data-period="quarterly" onclick="updateSalesChart('quarterly')">
+                                    <i class="fas fa-calendar me-1"></i>Quarterly
+                                </button>
+                                <button type="button" class="btn btn-outline-primary btn-sm filter-btn" data-period="yearly" onclick="updateSalesChart('yearly')">
+                                    <i class="fas fa-calendar-plus me-1"></i>Yearly
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                     <div class="chart-wrapper">
                         <canvas id="salesChart"></canvas>
                     </div>
@@ -500,6 +648,14 @@
                         // Update stats cards with real data
                         updateStatsCards(result.data);
                         
+                        // Initialize filter button states
+                        document.querySelectorAll('.filter-btn').forEach(btn => {
+                            btn.classList.remove('active', 'btn-primary');
+                            btn.classList.add('btn-outline-primary');
+                        });
+                        document.querySelector('[data-period="monthly"]').classList.remove('btn-outline-primary');
+                        document.querySelector('[data-period="monthly"]').classList.add('btn-primary', 'active');
+                        
                         console.log('✅ Dashboard initialized successfully');
                     } else {
                         throw new Error(result.message || 'Failed to load dashboard data');
@@ -581,6 +737,72 @@
         async function refreshDashboard() {
             console.log('🔄 Refreshing dashboard...');
             location.reload(); // Simple refresh for now
+        }
+
+        // Sales Chart Filter Function
+        async function updateSalesChart(period) {
+            console.log('🔄 Updating sales chart to period:', period);
+            
+            if (!window.dashboardCharts) {
+                console.error('❌ Dashboard charts not initialized');
+                return;
+            }
+            
+            // Show loading state
+            const chartContainer = document.querySelector('#salesChart').closest('.chart-container');
+            if (chartContainer) {
+                chartContainer.classList.add('chart-loading');
+            }
+            
+            try {
+                await window.dashboardCharts.updateSalesChart(period);
+                
+                // Update the chart title dynamically
+                const chartTitle = document.querySelector('.chart-container h3');
+                if (chartTitle) {
+                    const periodTitles = {
+                        daily: 'Daily Sales Trends',
+                        weekly: 'Weekly Sales Trends', 
+                        monthly: 'Monthly Sales Trends',
+                        quarterly: 'Quarterly Sales Trends',
+                        yearly: 'Yearly Sales Trends'
+                    };
+                    
+                    chartTitle.innerHTML = `
+                        <i class="fas fa-chart-line text-primary me-2"></i>
+                        ${periodTitles[period] || 'Sales Trends'}
+                    `;
+                }
+                
+                console.log('✅ Sales chart updated to period:', period);
+                
+                // Show success notification
+                const Toast = Swal.mixin({
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 2000,
+                    timerProgressBar: true
+                });
+                
+                Toast.fire({
+                    icon: 'success',
+                    title: `Chart updated to ${period} view`
+                });
+                
+            } catch (error) {
+                console.error('❌ Failed to update sales chart:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Chart Update Failed',
+                    text: 'Failed to update the sales chart. Please try again.'
+                });
+            } finally {
+                // Hide loading state
+                if (chartContainer) {
+                    chartContainer.classList.remove('chart-loading');
+                }
+            }
         }
 
         function exportDashboard() {
