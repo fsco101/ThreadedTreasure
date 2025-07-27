@@ -45,25 +45,8 @@ class ComponentLoader {
         }
     }
 
-    // Load header component
-    async loadHeader(selector = 'header-placeholder') {
-        await this.insertComponent(`#${selector}`, 'components/header.html');
-        // After header is loaded, refresh header menus
-        if (window.refreshHeaderAuth) window.refreshHeaderAuth();
-    }
-
-    // Force reload header (useful for login state changes)
-    async reloadHeader(selector = 'header-placeholder') {
-        const componentPath = 'components/header.html';
-        this.cache.delete(componentPath);
-        this.loadedComponents.delete(componentPath);
-        await this.loadHeader(selector);
-    }
-
-    // Load footer component
-    async loadFooter(selector = 'footer-placeholder') {
-        await this.insertComponent(`#${selector}`, 'components/footer.html');
-    }
+    // Generic component loader methods removed
+    // Header and footer loading should be handled by individual pages
 
     // Load multiple components
     async loadComponents(components) {
@@ -74,14 +57,10 @@ class ComponentLoader {
         await Promise.all(promises);
     }
 
-    // Initialize common components (header + footer)
+    // Initialize common components - now handled by individual pages
     async initializeCommonComponents() {
-        const components = [
-            { selector: '#header-placeholder', path: 'components/header.html' },
-            { selector: '#footer-placeholder', path: 'components/footer.html' }
-        ];
-
-        await this.loadComponents(components);
+        // This method is kept for backward compatibility but does nothing
+        // Individual pages should handle their own component loading
     }
 
     // Check if component is loaded
@@ -99,15 +78,10 @@ class ComponentLoader {
 // Create global instance
 const componentLoader = new ComponentLoader();
 
-// Auto-initialize when DOM is ready
+// Auto-initialize when DOM is ready - disabled for header/footer
 document.addEventListener('DOMContentLoaded', function() {
-    if (document.getElementById('header-placeholder')) {
-        componentLoader.loadHeader();
-    }
-    
-    if (document.getElementById('footer-placeholder')) {
-        componentLoader.loadFooter();
-    }
+    // Automatic component loading removed
+    // Pages should handle their own component loading manually
 });
 
 // Export for use in other scripts
