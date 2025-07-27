@@ -101,11 +101,31 @@ class CartManager {
             return;
         }
 
-        container.innerHTML = this.cart.map(item => `
+        container.innerHTML = this.cart.map(item => {
+            // Handle image path properly - convert relative paths to absolute URLs
+            let imageSrc = null;
+            if (item.image) {
+                if (item.image.startsWith('/')) {
+                    // Already absolute path
+                    imageSrc = item.image;
+                } else if (item.image.startsWith('products/')) {
+                    // Relative path from uploads folder
+                    imageSrc = `/uploads/${item.image}`;
+                } else {
+                    // Just filename - assume it's in products folder
+                    imageSrc = `/uploads/products/${item.image}`;
+                }
+            }
+            
+            return `
             <div class="cart-item" data-id="${item.id}">
                 <div class="item-image">
-                    ${item.image ? 
-                        `<img src="${item.image}" alt="${item.name}">` : 
+                    ${imageSrc ? 
+                        `<img src="${imageSrc}" alt="${item.name}" style="width: 100%; height: 100%; object-fit: cover;" 
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                         <div style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; background: #f8f9fa;">
+                             <i class="fas fa-image" style="color: #ddd; font-size: 2rem;"></i>
+                         </div>` : 
                         '<i class="fas fa-image" style="color: #ddd; font-size: 2rem;"></i>'
                     }
                 </div>
@@ -133,7 +153,8 @@ class CartManager {
                     <strong>$${(item.price * item.quantity).toFixed(2)}</strong>
                 </div>
             </div>
-        `).join('');
+            `;
+        }).join('');
 
         // Enable checkout button
         const checkoutBtn = document.querySelector('.checkout-btn');
@@ -205,6 +226,35 @@ class CartManager {
             item.id === product.id && item.size === size && item.color === color
         );
 
+        // Handle image path properly
+        let imagePath = null;
+        if (product.image) {
+            imagePath = product.image;
+        } else if (product.main_image) {
+            // Convert main_image path
+            if (product.main_image.startsWith('/uploads/')) {
+                imagePath = product.main_image.replace('/uploads/', '');
+            } else if (product.main_image.startsWith('/')) {
+                imagePath = product.main_image;
+            } else if (product.main_image.startsWith('products/')) {
+                imagePath = product.main_image;
+            } else {
+                imagePath = `products/${product.main_image}`;
+            }
+        } else if (product.images && product.images.length > 0) {
+            // Use first image from images array
+            const firstImage = product.images[0].image_path || product.images[0];
+            if (firstImage.startsWith('/uploads/')) {
+                imagePath = firstImage.replace('/uploads/', '');
+            } else if (firstImage.startsWith('/')) {
+                imagePath = firstImage;
+            } else if (firstImage.startsWith('products/')) {
+                imagePath = firstImage;
+            } else {
+                imagePath = `products/${firstImage}`;
+            }
+        }
+
         if (existingItem) {
             existingItem.quantity += quantity;
         } else {
@@ -215,7 +265,7 @@ class CartManager {
                 quantity: quantity,
                 size: size,
                 color: color,
-                image: product.image
+                image: imagePath
             });
         }
 
