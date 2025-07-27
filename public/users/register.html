@@ -22,6 +22,7 @@
             align-items: center;
             justify-content: center;
             padding: 20px;
+            padding-top: 80px; /* Account for fixed header */
         }
 
         .register-container {
@@ -172,6 +173,7 @@
     </style>
 </head>
 <body>
+    <div id="header-placeholder"></div>
     <div class="register-container">
         <div class="register-header">
             <div class="brand-logo">
@@ -622,7 +624,12 @@
             toast.show();
         }
     </script>
-    <!-- <div id="footer-placeholder"></div> -->
-
+    
+<div id="footer-placeholder"></div>
+    <script>document.addEventListener('DOMContentLoaded', function() {
+    componentLoader.insertComponent('#header-placeholder', 'components/header.html');
+    componentLoader.insertComponent('#footer-placeholder', 'components/footer.html');
+});</script>
+<script src="js/componentLoader.js"></script>
 </body>
 </html>

@@ -8,20 +8,14 @@ class ComponentLoader {
     // Load a component from file with cache-busting
     async loadComponent(componentPath) {
         try {
-            // Always append a timestamp query to ensure fresh content
             const fetchPath = `${componentPath}?v=${Date.now()}`;
-
             const response = await fetch(fetchPath, { 
                 cache: 'no-cache',
-                headers: {
-                    'Cache-Control': 'no-cache'
-                }
+                headers: { 'Cache-Control': 'no-cache' }
             });
-            
             if (!response.ok) {
                 throw new Error(`Failed to load component: ${componentPath} (${response.status})`);
             }
-
             const html = await response.text();
             return html;
         } catch (error) {
@@ -37,7 +31,6 @@ class ComponentLoader {
             console.error(`Element with selector "${selector}" not found`);
             return;
         }
-
         const componentHTML = await this.loadComponent(componentPath);
         if (componentHTML) {
             element.innerHTML = componentHTML;
@@ -45,22 +38,28 @@ class ComponentLoader {
         }
     }
 
-    // Generic component loader methods removed
-    // Header and footer loading should be handled by individual pages
-
     // Load multiple components
     async loadComponents(components) {
         const promises = components.map(({ selector, path }) => 
             this.insertComponent(selector, path)
         );
-        
         await Promise.all(promises);
     }
 
-    // Initialize common components - now handled by individual pages
-    async initializeCommonComponents() {
-        // This method is kept for backward compatibility but does nothing
-        // Individual pages should handle their own component loading
+    // Automatically load components based on data-component attribute
+    async autoLoadComponents() {
+        const nodes = document.querySelectorAll('[data-component]');
+        const promises = [];
+        nodes.forEach(node => {
+            const path = node.getAttribute('data-component');
+            if (path) {
+                promises.push(this.loadComponent(path).then(html => {
+                    node.innerHTML = html;
+                    this.loadedComponents.add(path);
+                }));
+            }
+        });
+        await Promise.all(promises);
     }
 
     // Check if component is loaded
@@ -78,10 +77,9 @@ class ComponentLoader {
 // Create global instance
 const componentLoader = new ComponentLoader();
 
-// Auto-initialize when DOM is ready - disabled for header/footer
+// Auto-load components when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
-    // Automatic component loading removed
-    // Pages should handle their own component loading manually
+    componentLoader.autoLoadComponents();
 });
 
 // Export for use in other scripts
