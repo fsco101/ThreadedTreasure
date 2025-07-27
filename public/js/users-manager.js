@@ -6,6 +6,8 @@ class UsersManager {
         this.currentMode = 'add'; // 'add' or 'edit'
         this.currentId = null;
         this.usersTable = null;
+        this.currentFilter = 'all';
+        this.users = [];
         
         this.init();
     }
@@ -45,93 +47,201 @@ class UsersManager {
         $('#selectAllUsers').on('change', (e) => {
             $('#usersTable tbody input[type="checkbox"]').prop('checked', e.target.checked);
         });
+
+        // Filter buttons
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const filter = e.target.dataset.filter;
+                this.filterUsers(filter);
+            });
+        });
+
+        // Refresh button
+        $('#refreshBtn').on('click', () => this.refreshUsers());
+        
+        // Advanced search functionality
+        this.setupAdvancedSearch();
+    }
+
+    setupAdvancedSearch() {
+        // Custom search function for better user filtering
+        $.fn.dataTable.ext.search.push((settings, data, dataIndex) => {
+            // Only apply to our users table
+            if (settings.nTable.id !== 'usersTable') {
+                return true;
+            }
+            
+            // Apply filter if not 'all'
+            if (this.currentFilter !== 'all') {
+                const roleColumn = data[5]; // Role column index
+                const statusColumn = data[6]; // Status column index
+                
+                switch (this.currentFilter) {
+                    case 'admin':
+                        return roleColumn.toLowerCase().includes('admin');
+                    case 'user':
+                        return roleColumn.toLowerCase().includes('user') || roleColumn.toLowerCase().includes('customer');
+                    case 'active':
+                        return statusColumn.toLowerCase().includes('active');
+                    case 'inactive':
+                        return statusColumn.toLowerCase().includes('inactive');
+                    default:
+                        return true;
+                }
+            }
+            
+            return true;
+        });
     }
 
     async initializeTable() {
         console.log('👥 Initializing Users Table...');
         
-        const token = window.adminAuth.getToken();
-        
-        this.usersTable = $('#usersTable').DataTable({
-            ajax: {
+        try {
+            // First load all users data
+            await this.loadAllUsers();
+            
+            const token = window.adminAuth.getToken();
+            
+            this.usersTable = $('#usersTable').DataTable({
+                data: this.users,
+                columns: [
+                    { 
+                        data: null,
+                        orderable: false,
+                        searchable: false,
+                        render: (data, type, row) => `<input type="checkbox" value="${row.id}">`
+                    },
+                    { 
+                        data: 'id',
+                        title: 'ID',
+                        render: (data, type) => {
+                            if (type === 'export') return data;
+                            return `<strong>#${data}</strong>`;
+                        }
+                    },
+                    { 
+                        data: 'profile_photo',
+                        title: 'Avatar',
+                        orderable: false,
+                        searchable: false,
+                        render: (data, type, row) => {
+                            if (type === 'export') return '';
+                            
+                            const initial = row.name ? row.name.charAt(0).toUpperCase() : 'U';
+                            if (data) {
+                                const imgSrc = data.startsWith('/') ? data : `/uploads/users/${data}`;
+                                return `
+                                    <div class="user-avatar-container">
+                                        <div class="avatar-placeholder">
+                                            <i class="fas fa-user"></i>
+                                        </div>
+                                        <img src="${imgSrc}" 
+                                             alt="Avatar" 
+                                             class="user-avatar"
+                                             onload="this.classList.add('loaded'); this.previousElementSibling.style.display='none';"
+                                             onerror="this.style.display='none'; this.previousElementSibling.style.display='flex';">
+                                    </div>
+                                `;
+                            }
+                            return `
+                                <div class="user-avatar-container">
+                                    <div class="no-avatar-text">${initial}</div>
+                                </div>
+                            `;
+                        }
+                    },
+                    { 
+                        data: 'name',
+                        title: 'Name',
+                        render: (data, type, row) => {
+                            if (type === 'export') return data || 'N/A';
+                            return `<strong>${data || 'N/A'}</strong>`;
+                        }
+                    },
+                    { 
+                        data: 'email',
+                        title: 'Email',
+                        render: (data, type) => {
+                            if (type === 'export') return data || 'N/A';
+                            return data || 'N/A';
+                        }
+                    },
+                    { 
+                        data: 'role',
+                        title: 'Role',
+                        render: (data, type) => {
+                            const role = data || 'user';
+                            if (type === 'export') return role.toUpperCase();
+                            const roleClass = `role-${role.toLowerCase()}`;
+                            return `<span class="role-badge ${roleClass}">${role.toUpperCase()}</span>`;
+                        }
+                    },
+                    { 
+                        data: 'is_active',
+                        title: 'Status',
+                        render: (data, type) => {
+                            const isActive = Number(data) === 1;
+                            const status = isActive ? 'Active' : 'Inactive';
+                            if (type === 'export') return status;
+                            return `<span class="status-badge ${isActive ? 'status-active' : 'status-inactive'}">${status}</span>`;
+                        }
+                    },
+                    { 
+                        data: 'last_login',
+                        title: 'Last Login',
+                        render: (data, type) => {
+                            if (!data) return 'Never';
+                            const date = new Date(data);
+                            if (type === 'export') return date.toLocaleDateString();
+                            return `<span title="${date.toLocaleString()}">${date.toLocaleDateString()}</span>`;
+                        }
+                    },
+                    {
+                        data: null,
+                        title: 'Actions',
+                        orderable: false,
+                        searchable: false,
+                        render: (data, type, row) => {
+                            if (type === 'export') return '';
+                            return this.getActionButtons(row.id);
+                        }
+                    }
+                ],
+                ...this.getTableConfig()
+            });
+            
+            console.log('✅ Users table initialized with', this.users.length, 'users');
+        } catch (error) {
+            console.error('❌ Failed to initialize users table:', error);
+            this.showError('Error', 'Failed to load users data');
+        }
+    }
+
+    async loadAllUsers() {
+        try {
+            const token = window.adminAuth.getToken();
+            const response = await $.ajax({
                 url: '/api/users',
-                type: 'GET',
-                headers: { 
+                method: 'GET',
+                headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
-                },
-                dataSrc: function(json) {
-                    console.log('👥 Users API Response:', json);
-                    if (json.success && json.data) {
-                        return json.data;
-                    } else {
-                        console.error('❌ Users API Error: Invalid response format', json);
-                        return [];
-                    }
-                },
-                error: function(xhr, error, thrown) {
-                    console.error('❌ Users API Error:', {
-                        status: xhr.status,
-                        statusText: xhr.statusText,
-                        responseText: xhr.responseText,
-                        error: error,
-                        thrown: thrown
-                    });
-                    return [];
                 }
-            },
-            columns: [
-                { 
-                    data: null,
-                    orderable: false,
-                    searchable: false,
-                    render: (data, type, row) => `<input type="checkbox" value="${row.id}">`
-                },
-                { data: 'id' },
-                { 
-                    data: 'profile_photo',
-                    orderable: false,
-                    searchable: false,
-                    render: (data, type, row) => {
-                        const initial = row.name ? row.name.charAt(0).toUpperCase() : 'U';
-                        if (data) {
-                            const imgSrc = data.startsWith('/') ? data : `/uploads/users/${data}`;
-                            return `<img src="${imgSrc}" alt="Avatar" style="width: 40px; height: 40px; object-fit: cover; border-radius: 50%;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                    <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 50%; display: none; align-items: center; justify-content: center; font-weight: bold;">${initial}</div>`;
-                        }
-                        return `<div style="width: 40px; height: 40px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">${initial}</div>`;
-                    }
-                },
-                { data: 'name' },
-                { data: 'email' },
-                { 
-                    data: 'role',
-                    render: (data) => {
-                        const roleClass = data === 'admin' ? 'status-active' : 'status-pending';
-                        return `<span class="status-badge ${roleClass}">${data || 'customer'}</span>`;
-                    }
-                },
-                { 
-                    data: 'is_active',
-                    render: (data) => {
-                        // Accept 1 as active, 0 as inactive (integer only)
-                        const isActive = Number(data) === 1;
-                        return `<span class="status-badge ${isActive ? 'status-active' : 'status-inactive'}">${isActive ? 'Active' : 'Inactive'}</span>`;
-                    }
-                },
-                { 
-                    data: 'last_login',
-                    render: (data) => data ? new Date(data).toLocaleDateString() : 'Never'
-                },
-                {
-                    data: null,
-                    orderable: false,
-                    searchable: false,
-                    render: (data, type, row) => this.getActionButtons(row.id)
-                }
-            ],
-            ...this.getTableConfig()
-        });
+            });
+            
+            if (response.success && response.data) {
+                this.users = response.data;
+                console.log('✅ Loaded users:', this.users.length);
+            } else {
+                console.error('❌ Users API Error: Invalid response format', response);
+                this.users = [];
+            }
+        } catch (error) {
+            console.error('❌ Users API Error:', error);
+            this.users = [];
+            throw error;
+        }
     }
 
     getTableConfig() {
@@ -140,42 +250,117 @@ class UsersManager {
             processing: true,
             serverSide: false,
             pageLength: 25,
-            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
-            dom: 'Bfrtip',
+            lengthMenu: [
+                [10, 15, 25, 50, 100, -1], 
+                [10, 15, 25, 50, 100, "All"]
+            ],
+            dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
+                 '<"row"<"col-sm-12"tr>>' +
+                 '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>' +
+                 '<"row"<"col-sm-12"B>>',
+            autoWidth: false,
+            deferRender: true,
+            stateSave: true,
+            stateDuration: 60 * 60 * 24, // Save state for 24 hours
+            columnDefs: [
+                {
+                    targets: [0, 8], // Checkbox and actions columns
+                    width: '80px',
+                    className: 'text-center align-middle'
+                },
+                {
+                    targets: [1], // ID column
+                    width: '80px',
+                    className: 'text-center align-middle'
+                },
+                {
+                    targets: [2], // Avatar column
+                    width: '80px',
+                    className: 'text-center align-middle'
+                },
+                {
+                    targets: [3, 4], // Name and Email columns
+                    width: '200px',
+                    className: 'align-middle'
+                },
+                {
+                    targets: [5, 6, 7], // Role, Status, Last Login columns
+                    width: '120px',
+                    className: 'text-center align-middle'
+                }
+            ],
             buttons: [
                 {
                     extend: 'excel',
                     text: '<i class="fas fa-file-excel"></i> Excel',
-                    className: 'btn btn-success btn-sm'
+                    className: 'btn btn-success btn-sm me-1',
+                    exportOptions: {
+                        columns: [1, 3, 4, 5, 6, 7] // Exclude checkbox, avatar, and actions
+                    },
+                    title: 'Users Report - ThreadedTreasure Admin'
                 },
                 {
                     extend: 'pdf',
                     text: '<i class="fas fa-file-pdf"></i> PDF',
-                    className: 'btn btn-danger btn-sm'
+                    className: 'btn btn-danger btn-sm me-1',
+                    exportOptions: {
+                        columns: [1, 3, 4, 5, 6, 7]
+                    },
+                    title: 'Users Report - ThreadedTreasure Admin'
                 },
                 {
                     extend: 'print',
                     text: '<i class="fas fa-print"></i> Print',
-                    className: 'btn btn-info btn-sm'
+                    className: 'btn btn-info btn-sm',
+                    exportOptions: {
+                        columns: [1, 3, 4, 5, 6, 7]
+                    },
+                    title: 'Users Report - ThreadedTreasure Admin'
                 }
             ],
             order: [[1, 'desc']],
+            pagingType: 'full_numbers',
+            pageInfo: true,
+            searching: true,
+            searchHighlight: true,
+            drawCallback: function() {
+                // Initialize avatars after table draw
+                $('.user-avatar-container img').each(function() {
+                    const img = $(this);
+                    const placeholder = img.siblings('.avatar-placeholder');
+                    
+                    // Check if image is already loaded
+                    if (this.complete && this.naturalHeight !== 0) {
+                        img.addClass('loaded');
+                        placeholder.hide();
+                    }
+                });
+                
+                // Update pagination info
+                const api = this.api();
+                const info = api.page.info();
+                const pageInfo = `Page ${info.page + 1} of ${info.pages} (${info.recordsTotal} total users)`;
+                $('.dataTables_info').text(pageInfo);
+                
+                console.log('Users DataTable draw complete. Rows:', info.recordsTotal);
+            },
             language: {
                 search: "_INPUT_",
                 searchPlaceholder: "Search users...",
-                lengthMenu: "Show _MENU_ entries",
-                info: "Showing _START_ to _END_ of _TOTAL_ entries",
-                infoEmpty: "Showing 0 to 0 of 0 entries",
-                infoFiltered: "(filtered from _MAX_ total entries)",
-                emptyTable: "No users available",
+                lengthMenu: "Show _MENU_ users per page",
+                info: "Showing _START_ to _END_ of _TOTAL_ users",
+                infoEmpty: "No users available",
+                infoFiltered: "(filtered from _MAX_ total users)",
+                emptyTable: "No users found",
                 loadingRecords: "Loading users...",
-                processing: "Processing...",
+                processing: '<div class="d-flex justify-content-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>',
                 paginate: {
                     first: '<i class="fas fa-angle-double-left"></i>',
                     previous: '<i class="fas fa-angle-left"></i>',
                     next: '<i class="fas fa-angle-right"></i>',
                     last: '<i class="fas fa-angle-double-right"></i>'
-                }
+                },
+                zeroRecords: "No matching users found"
             }
         };
     }
@@ -447,6 +632,178 @@ class UsersManager {
         });
     }
 
+    filterUsers(filter) {
+        this.currentFilter = filter;
+        
+        // Update active filter button
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.querySelector(`[data-filter="${filter}"]`).classList.add('active');
+        
+        // Apply filter to DataTable
+        if (this.usersTable) {
+            // Clear any existing search and redraw
+            this.usersTable.search('').draw();
+            
+            // Show loading state
+            this.showTableLoading(true);
+            
+            // Apply filter with animation
+            setTimeout(() => {
+                this.usersTable.draw();
+                this.showTableLoading(false);
+                
+                // Update filter info
+                this.updateFilterInfo(filter);
+            }, 100);
+        }
+    }
+
+    updateFilterInfo(filter) {
+        const api = this.usersTable;
+        if (!api) return;
+        
+        const info = api.page.info();
+        let filterText = '';
+        
+        if (filter === 'all') {
+            filterText = `Showing all ${info.recordsTotal} users`;
+        } else {
+            const filteredCount = info.recordsDisplay;
+            const filterLabel = filter.charAt(0).toUpperCase() + filter.slice(1);
+            filterText = `Showing ${filteredCount} ${filterLabel.toLowerCase()} users`;
+        }
+        
+        // Update info display
+        $('.dataTables_info').text(filterText);
+        
+        console.log(`🔍 Filter applied: ${filter} (${info.recordsDisplay}/${info.recordsTotal} users)`);
+    }
+
+    showTableLoading(show) {
+        if (show) {
+            $('#usersTable').addClass('table-loading');
+            $('#usersTable tbody').append(`
+                <tr class="loading-row">
+                    <td colspan="9" class="text-center p-3">
+                        <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                        Applying filter...
+                    </td>
+                </tr>
+            `);
+        } else {
+            $('#usersTable').removeClass('table-loading');
+            $('.loading-row').remove();
+        }
+    }
+
+    refreshUsers() {
+        console.log('🔄 Refreshing users...');
+        
+        // Reset filter to 'all'
+        this.currentFilter = 'all';
+        document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelector('[data-filter="all"]').classList.add('active');
+        
+        // Reload users
+        this.refreshTable();
+    }
+
+    async refreshTable() {
+        try {
+            console.log('🔄 Refreshing users table...');
+            
+            if (this.usersTable) {
+                this.usersTable.destroy();
+                this.usersTable = null;
+            }
+            
+            await this.initializeTable();
+            console.log('✅ Users table refreshed successfully');
+        } catch (error) {
+            console.error('❌ Failed to refresh users table:', error);
+            this.showError('Refresh Failed', 'Failed to refresh users data. Please try again.');
+        }
+    }
+
+    exportUsers(format = 'excel') {
+        if (!this.usersTable) {
+            this.showError('Export Error', 'No data available to export');
+            return;
+        }
+
+        try {
+            console.log(`📊 Exporting users to ${format}...`);
+            
+            switch (format) {
+                case 'excel':
+                    this.usersTable.button('.buttons-excel').trigger();
+                    break;
+                case 'pdf':
+                    this.usersTable.button('.buttons-pdf').trigger();
+                    break;
+                case 'print':
+                    this.usersTable.button('.buttons-print').trigger();
+                    break;
+                default:
+                    this.showError('Export Error', 'Unsupported export format');
+                    return;
+            }
+            
+            this.showSuccess('Export Success', `Users exported to ${format.toUpperCase()} successfully!`);
+        } catch (error) {
+            console.error('Export error:', error);
+            this.showError('Export Error', 'Failed to export users');
+        }
+    }
+
+    // Advanced search methods
+    searchByName(name) {
+        if (this.usersTable) {
+            this.usersTable.column(3).search(name).draw();
+        }
+    }
+
+    searchByEmail(email) {
+        if (this.usersTable) {
+            this.usersTable.column(4).search(email).draw();
+        }
+    }
+
+    searchByRole(role) {
+        if (this.usersTable) {
+            this.usersTable.column(5).search(role).draw();
+        }
+    }
+
+    clearAllFilters() {
+        this.currentFilter = 'all';
+        
+        // Reset filter buttons
+        document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelector('[data-filter="all"]').classList.add('active');
+        
+        // Clear table search and redraw
+        if (this.usersTable) {
+            this.usersTable.search('').columns().search('').draw();
+        }
+        
+        console.log('🧹 All filters cleared');
+    }
+
+    showSuccess(title, message) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'success',
+                title: title,
+                text: message
+            });
+        } else {
+            alert(`${title}: ${message}`);
+        }
+    }
+
     showError(title, message) {
         if (typeof Swal !== 'undefined') {
             Swal.fire({
@@ -469,13 +826,37 @@ function openAddUserModal() {
 
 function refreshUsersTable() {
     if (window.usersManager) {
-        window.usersManager.refreshTable();
+        window.usersManager.refreshUsers();
     }
 }
 
-function exportUsers() {
-    if (window.usersManager && window.usersManager.usersTable) {
-        window.usersManager.usersTable.buttons.exportData();
+function exportUsers(format = 'excel') {
+    if (window.usersManager) {
+        window.usersManager.exportUsers(format);
+    }
+}
+
+function clearAllFilters() {
+    if (window.usersManager) {
+        window.usersManager.clearAllFilters();
+    }
+}
+
+function searchByName(name) {
+    if (window.usersManager) {
+        window.usersManager.searchByName(name);
+    }
+}
+
+function searchByEmail(email) {
+    if (window.usersManager) {
+        window.usersManager.searchByEmail(email);
+    }
+}
+
+function searchByRole(role) {
+    if (window.usersManager) {
+        window.usersManager.searchByRole(role);
     }
 }
 
@@ -484,4 +865,26 @@ $(document).ready(() => {
     if (typeof window.usersManager === 'undefined') {
         window.usersManager = new UsersManager();
     }
+    
+    // Add keyboard shortcuts
+    $(document).on('keydown', (e) => {
+        // Ctrl/Cmd + R for refresh
+        if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+            e.preventDefault();
+            refreshUsersTable();
+        }
+        
+        // Ctrl/Cmd + E for export
+        if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+            e.preventDefault();
+            exportUsers();
+        }
+        
+        // Escape to clear filters
+        if (e.key === 'Escape') {
+            clearAllFilters();
+        }
+    });
+    
+    console.log('🎯 Users Manager with enhanced filtering initialized');
 });

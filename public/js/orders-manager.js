@@ -8,6 +8,8 @@ class OrdersManager {
         this.ordersTable = null;
         this.customers = [];
         this.products = [];
+        this.currentFilter = 'all';
+        this.orders = [];
         
         this.init();
     }
@@ -52,6 +54,7 @@ class OrdersManager {
 
         // Status update button
         $('#saveStatusUpdateBtn').on('click', () => this.updateOrderStatus());
+        
         // Action buttons (event delegation for DataTables rows)
         $('#ordersTable tbody').on('click', '.btn-view', (e) => {
             const id = $(e.currentTarget).data('id');
@@ -64,6 +67,41 @@ class OrdersManager {
         $('#ordersTable tbody').on('click', '.btn-delete', (e) => {
             const id = $(e.currentTarget).data('id');
             this.deleteOrder(id);
+        });
+
+        // Filter buttons
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const status = e.target.dataset.status;
+                this.filterOrders(status);
+            });
+        });
+
+        // Refresh button
+        $('#refreshBtn').on('click', () => this.refreshOrders());
+        
+        // Advanced search functionality
+        this.setupAdvancedSearch();
+    }
+
+    setupAdvancedSearch() {
+        // Custom search function for better order filtering
+        $.fn.dataTable.ext.search.push((settings, data, dataIndex) => {
+            // Only apply to our orders table
+            if (settings.nTable.id !== 'ordersTable') {
+                return true;
+            }
+            
+            // Apply status filter if not 'all'
+            if (this.currentFilter !== 'all') {
+                const statusColumn = data[5]; // Status column index
+                const filterStatus = this.currentFilter.toUpperCase();
+                if (!statusColumn.includes(filterStatus)) {
+                    return false;
+                }
+            }
+            
+            return true;
         });
     }
 
@@ -109,185 +147,247 @@ class OrdersManager {
 
     async initializeTable() {
         console.log('📋 Initializing Orders Table...');
-        const token = window.adminAuth.getToken();
-        this.ordersTable = $('#ordersTable').DataTable({
-            ajax: {
+        
+        try {
+            // First load all orders data
+            await this.loadAllOrders();
+            
+            const token = window.adminAuth.getToken();
+            
+            this.ordersTable = $('#ordersTable').DataTable({
+                data: this.orders,
+                columns: [
+                    { // 0: Checkbox
+                        data: null,
+                        orderable: false,
+                        searchable: false,
+                        render: (data, type, row) => `<input type="checkbox" value="${row.id}">`
+                    },
+                    { // 1: Order ID
+                        data: 'order_number',
+                        title: 'Order #',
+                        render: (data, type, row) => {
+                            if (type === 'export') return `#${data || row.id}`;
+                            return `<strong>#${data || row.id}</strong>`;
+                        }
+                    },
+                    { // 2: Customer
+                        data: null,
+                        title: 'Customer',
+                        render: (data, type, row) => {
+                            const customerName = row.customer_name || 'Unknown Customer';
+                            const customerEmail = row.customer_email || '';
+                            if (type === 'export') return customerName;
+                            return `
+                                <div>
+                                    <div class="fw-bold">${customerName}</div>
+                                    ${customerEmail ? `<small class="text-muted">${customerEmail}</small>` : ''}
+                                </div>
+                            `;
+                        }
+                    },
+                    { // 3: Items
+                        data: 'item_count',
+                        title: 'Items',
+                        render: (data, type) => {
+                            const count = data || 0;
+                            if (type === 'export') return `${count} items`;
+                            return `<span class="badge bg-secondary">${count} items</span>`;
+                        }
+                    },
+                    { // 4: Total
+                        data: 'total_amount',
+                        title: 'Total',
+                        render: (data, type) => {
+                            const amount = data ? `$${parseFloat(data).toFixed(2)}` : '$0.00';
+                            if (type === 'export') return amount;
+                            return `<strong>${amount}</strong>`;
+                        }
+                    },
+                    { // 5: Status
+                        data: 'status',
+                        title: 'Status',
+                        render: (data, type) => {
+                            const status = (data || 'pending').toUpperCase();
+                            if (type === 'export') return status;
+                            const statusClass = `status-${(data || 'pending').toLowerCase()}`;
+                            return `<span class="order-status ${statusClass}">${status}</span>`;
+                        }
+                    },
+                    { // 6: Payment
+                        data: 'payment_status',
+                        title: 'Payment',
+                        render: (data, type) => {
+                            const status = (data || 'pending').toUpperCase();
+                            if (type === 'export') return status;
+                            const statusClass = `payment-${(data || 'pending').toLowerCase()}`;
+                            return `<span class="payment-status ${statusClass}">${status}</span>`;
+                        }
+                    },
+                    { // 7: Date
+                        data: 'created_at',
+                        title: 'Date',
+                        render: (data, type) => {
+                            if (!data) return 'N/A';
+                            const date = new Date(data);
+                            if (type === 'export') return date.toLocaleDateString();
+                            return `<span title="${date.toLocaleString()}">${date.toLocaleDateString()}</span>`;
+                        }
+                    },
+                    { // 8: Actions
+                        data: null,
+                        title: 'Actions',
+                        orderable: false,
+                        searchable: false,
+                        render: (data, type, row) => {
+                            if (type === 'export') return '';
+                            return this.getActionButtons(row.id);
+                        }
+                    }
+                ],
+                ...this.getTableConfig()
+            });
+            
+            console.log('✅ Orders table initialized with', this.orders.length, 'orders');
+        } catch (error) {
+            console.error('❌ Failed to initialize orders table:', error);
+            this.showError('Error', 'Failed to load orders data');
+        }
+    }
+
+    async loadAllOrders() {
+        try {
+            const token = window.adminAuth.getToken();
+            const response = await $.ajax({
                 url: '/api/orders/admin/all',
-                type: 'GET',
+                method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
-                },
-                data: function(d) {
-                    // Pass DataTables server-side params to backend
-                    return d;
-                },
-                dataSrc: function(json) {
-                    console.log('📋 Orders API Response:', json);
-                    if (json.success && json.data) {
-                        return json.data;
-                    } else {
-                        console.error('❌ Orders API Error: Invalid response format', json);
-                        return [];
-                    }
-                },
-                error: function(xhr, error, thrown) {
-                    console.error('❌ Orders API Error:', {
-                        status: xhr.status,
-                        statusText: xhr.statusText,
-                        responseText: xhr.responseText,
-                        error: error,
-                        thrown: thrown
-                    });
-                    return [];
                 }
-            },
-            columns: [
-                { // 0: Checkbox
-                    data: null,
-                    orderable: false,
-                    searchable: false,
-                    render: (data, type, row) => `<input type="checkbox" value="${row.id}">`
-                },
-                { // 1: Order ID
-                    data: 'order_number',
-                    render: (data, type, row) => `<strong>#${data || row.id}</strong>`
-                },
-                { // 2: Customer
-                    data: null,
-                    render: (data, type, row) => {
-                        const customerName = row.customer_name || 'Unknown Customer';
-                        const customerEmail = row.customer_email || '';
-                        return `
-                            <div>
-                                <div class="fw-bold">${customerName}</div>
-                                ${customerEmail ? `<small class="text-muted">${customerEmail}</small>` : ''}
-                            </div>
-                        `;
-                    }
-                },
-                { // 3: Items
-                    data: 'item_count',
-                    render: (data) => {
-                        const count = data || 0;
-                        return `<span class="badge bg-secondary">${count} items</span>`;
-                    }
-                },
-                { // 4: Total
-                    data: 'total_amount',
-                    render: (data) => data ? `$${parseFloat(data).toFixed(2)}` : '$0.00'
-                },
-                { // 5: Status
-                    data: 'status',
-                    render: (data) => {
-                        const statusClass = `status-${(data || 'pending').toLowerCase()}`;
-                        return `<span class="order-status ${statusClass}">${(data || 'pending').toUpperCase()}</span>`;
-                    }
-                },
-                { // 6: Payment
-                    data: 'payment_status',
-                    render: (data) => {
-                        const statusClass = `payment-${(data || 'pending').toLowerCase()}`;
-                        return `<span class="payment-status ${statusClass}">${(data || 'pending').toUpperCase()}</span>`;
-                    }
-                },
-                { // 7: Date
-                    data: 'created_at',
-                    render: (data) => data ? new Date(data).toLocaleDateString() : 'N/A'
-                },
-                { // 8: Actions
-                    data: null,
-                    orderable: false,
-                    searchable: false,
-                    render: (data, type, row) => this.getActionButtons(row.id)
-                }
-            ],
-            ...this.getTableConfig(),
-            serverSide: true
-        });
+            });
+            
+            if (response.success && response.data) {
+                this.orders = response.data;
+                console.log('✅ Loaded orders:', this.orders.length);
+            } else {
+                console.error('❌ Orders API Error: Invalid response format', response);
+                this.orders = [];
+            }
+        } catch (error) {
+            console.error('❌ Orders API Error:', error);
+            this.orders = [];
+            throw error;
+        }
     }
 
     getTableConfig() {
         return {
             responsive: true,
             processing: true,
+            serverSide: false,
             pageLength: 25,
-            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
-            dom: `
-                <'row mb-3'
-                    <'col-md-6'B>
-                    <'col-md-6'f>
-                >
-                <'row'
-                    <'col-12'tr>
-                >
-                <'row mt-3'
-                    <'col-md-5'i>
-                    <'col-md-7'p>
-                >
-            `,
+            lengthMenu: [
+                [10, 15, 25, 50, 100, -1], 
+                [10, 15, 25, 50, 100, "All"]
+            ],
+            dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
+                 '<"row"<"col-sm-12"tr>>' +
+                 '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>' +
+                 '<"row"<"col-sm-12"B>>',
             autoWidth: false,
             deferRender: true,
-            stateSave: false,
+            stateSave: true,
+            stateDuration: 60 * 60 * 24, // Save state for 24 hours
             scrollX: true,
             columnDefs: [
                 {
                     targets: [0, 8], // Checkbox and actions columns
-                    width: '60px',
+                    width: '80px',
                     className: 'text-center align-middle'
                 },
                 {
                     targets: [1], // Order number column
-                    width: '100px',
+                    width: '120px',
                     className: 'text-center align-middle'
                 },
                 {
-                    targets: [3, 4, 5, 6], // Items, Total, Status, Payment columns
-                    width: '100px',
+                    targets: [2], // Customer column
+                    width: '200px',
+                    className: 'align-middle'
+                },
+                {
+                    targets: [3, 4, 5, 6, 7], // Items, Total, Status, Payment, Date columns
+                    width: '120px',
                     className: 'text-center align-middle'
                 }
             ],
             buttons: [
                 {
                     extend: 'excel',
-                    text: '<i class="fas fa-file-excel me-1"></i>Excel',
-                    className: 'btn btn-success btn-sm me-1'
+                    text: '<i class="fas fa-file-excel"></i> Excel',
+                    className: 'btn btn-success btn-sm me-1',
+                    exportOptions: {
+                        columns: [1, 2, 3, 4, 5, 6, 7] // Exclude checkbox and actions
+                    },
+                    title: 'Orders Report - ThreadedTreasure Admin'
                 },
                 {
                     extend: 'pdf',
-                    text: '<i class="fas fa-file-pdf me-1"></i>PDF',
-                    className: 'btn btn-danger btn-sm me-1'
+                    text: '<i class="fas fa-file-pdf"></i> PDF',
+                    className: 'btn btn-danger btn-sm me-1',
+                    exportOptions: {
+                        columns: [1, 2, 3, 4, 5, 6, 7]
+                    },
+                    title: 'Orders Report - ThreadedTreasure Admin'
                 },
                 {
                     extend: 'print',
-                    text: '<i class="fas fa-print me-1"></i>Print',
-                    className: 'btn btn-info btn-sm me-1'
+                    text: '<i class="fas fa-print"></i> Print',
+                    className: 'btn btn-info btn-sm',
+                    exportOptions: {
+                        columns: [1, 2, 3, 4, 5, 6, 7]
+                    },
+                    title: 'Orders Report - ThreadedTreasure Admin'
                 }
             ],
             order: [[1, 'desc']],
-            language: {
-                search: "_INPUT_",
-                searchPlaceholder: "Search orders...",
-                lengthMenu: "Show _MENU_ entries",
-                info: "Showing _START_ to _END_ of _TOTAL_ entries",
-                infoEmpty: "Showing 0 to 0 of 0 entries",
-                infoFiltered: "(filtered from _MAX_ total entries)",
-                emptyTable: "No orders available",
-                loadingRecords: "Loading orders...",
-                processing: '<div class="d-flex align-items-center"><div class="spinner-border spinner-border-sm me-2" role="status"></div>Loading orders...</div>',
-                paginate: {
-                    first: '<i class="fas fa-angle-double-left"></i>',
-                    previous: '<i class="fas fa-angle-left"></i>',
-                    next: '<i class="fas fa-angle-right"></i>',
-                    last: '<i class="fas fa-angle-double-right"></i>'
-                }
-            },
+            pagingType: 'full_numbers',
+            pageInfo: true,
+            searching: true,
+            searchHighlight: true,
             drawCallback: function() {
                 // Apply enhanced pagination styling after each draw
                 $('.dataTables_paginate .paginate_button').addClass('page-link');
                 $('.dataTables_paginate .paginate_button.current').addClass('active');
                 $('.dataTables_length select').addClass('form-select form-select-sm');
                 $('.dataTables_filter input').addClass('form-control form-control-sm');
+                
+                // Update pagination info
+                const api = this.api();
+                const info = api.page.info();
+                const pageInfo = `Page ${info.page + 1} of ${info.pages} (${info.recordsTotal} total orders)`;
+                $('.dataTables_info').text(pageInfo);
+                
+                console.log('Orders DataTable draw complete. Rows:', info.recordsTotal);
+            },
+            language: {
+                search: "_INPUT_",
+                searchPlaceholder: "Search orders...",
+                lengthMenu: "Show _MENU_ orders per page",
+                info: "Showing _START_ to _END_ of _TOTAL_ orders",
+                infoEmpty: "No orders available",
+                infoFiltered: "(filtered from _MAX_ total orders)",
+                emptyTable: "No orders found",
+                loadingRecords: "Loading orders...",
+                processing: '<div class="d-flex justify-content-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>',
+                paginate: {
+                    first: '<i class="fas fa-angle-double-left"></i>',
+                    previous: '<i class="fas fa-angle-left"></i>',
+                    next: '<i class="fas fa-angle-right"></i>',
+                    last: '<i class="fas fa-angle-double-right"></i>'
+                },
+                zeroRecords: "No matching orders found"
             }
         };
     }
@@ -598,6 +698,186 @@ class OrdersManager {
         });
     }
 
+    filterOrders(status) {
+        this.currentFilter = status;
+        
+        // Update active filter button
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.querySelector(`[data-status="${status}"]`).classList.add('active');
+        
+        // Apply filter to DataTable
+        if (this.ordersTable) {
+            // Clear any existing search and redraw
+            this.ordersTable.search('').draw();
+            
+            // Show loading state
+            this.showTableLoading(true);
+            
+            // Apply filter with animation
+            setTimeout(() => {
+                this.ordersTable.draw();
+                this.showTableLoading(false);
+                
+                // Update filter info
+                this.updateFilterInfo(status);
+            }, 100);
+        }
+    }
+
+    updateFilterInfo(status) {
+        const api = this.ordersTable;
+        if (!api) return;
+        
+        const info = api.page.info();
+        let filterText = '';
+        
+        if (status === 'all') {
+            filterText = `Showing all ${info.recordsTotal} orders`;
+        } else {
+            const filteredCount = info.recordsDisplay;
+            const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
+            filterText = `Showing ${filteredCount} ${statusLabel.toLowerCase()} orders`;
+        }
+        
+        // Update info display
+        $('.dataTables_info').text(filterText);
+        
+        console.log(`🔍 Filter applied: ${status} (${info.recordsDisplay}/${info.recordsTotal} orders)`);
+    }
+
+    showTableLoading(show) {
+        if (show) {
+            $('#ordersTable').addClass('table-loading');
+            $('#ordersTable tbody').append(`
+                <tr class="loading-row">
+                    <td colspan="9" class="text-center p-3">
+                        <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                        Applying filter...
+                    </td>
+                </tr>
+            `);
+        } else {
+            $('#ordersTable').removeClass('table-loading');
+            $('.loading-row').remove();
+        }
+    }
+
+    refreshOrders() {
+        console.log('🔄 Refreshing orders...');
+        
+        // Reset filter to 'all'
+        this.currentFilter = 'all';
+        document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelector('[data-status="all"]').classList.add('active');
+        
+        // Reload orders
+        this.refreshTable();
+    }
+
+    async refreshTable() {
+        try {
+            console.log('🔄 Refreshing orders table...');
+            
+            if (this.ordersTable) {
+                this.ordersTable.destroy();
+                this.ordersTable = null;
+            }
+            
+            await this.initializeTable();
+            console.log('✅ Orders table refreshed successfully');
+        } catch (error) {
+            console.error('❌ Failed to refresh orders table:', error);
+            this.showError('Refresh Failed', 'Failed to refresh orders data. Please try again.');
+        }
+    }
+
+    exportOrders(format = 'excel') {
+        if (!this.ordersTable) {
+            this.showError('Export Error', 'No data available to export');
+            return;
+        }
+
+        try {
+            console.log(`📊 Exporting orders to ${format}...`);
+            
+            switch (format) {
+                case 'excel':
+                    this.ordersTable.button('.buttons-excel').trigger();
+                    break;
+                case 'pdf':
+                    this.ordersTable.button('.buttons-pdf').trigger();
+                    break;
+                case 'print':
+                    this.ordersTable.button('.buttons-print').trigger();
+                    break;
+                default:
+                    this.showError('Export Error', 'Unsupported export format');
+                    return;
+            }
+            
+            this.showSuccess('Export Success', `Orders exported to ${format.toUpperCase()} successfully!`);
+        } catch (error) {
+            console.error('Export error:', error);
+            this.showError('Export Error', 'Failed to export orders');
+        }
+    }
+
+    // Advanced search methods
+    searchByOrderNumber(orderNumber) {
+        if (this.ordersTable) {
+            this.ordersTable.column(1).search(orderNumber).draw();
+        }
+    }
+
+    searchByCustomer(customerName) {
+        if (this.ordersTable) {
+            this.ordersTable.column(2).search(customerName).draw();
+        }
+    }
+
+    searchByDateRange(startDate, endDate) {
+        if (this.ordersTable) {
+            // Custom date range filtering would be implemented here
+            console.log(`🔍 Searching orders from ${startDate} to ${endDate}`);
+        }
+    }
+
+    searchByAmount(minAmount, maxAmount) {
+        if (this.ordersTable) {
+            // Custom amount range filtering would be implemented here
+            console.log(`🔍 Searching orders between $${minAmount} - $${maxAmount}`);
+        }
+    }
+
+    clearAllFilters() {
+        this.currentFilter = 'all';
+        
+        // Reset filter buttons
+        document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelector('[data-status="all"]').classList.add('active');
+        
+        // Clear table search and redraw
+        if (this.ordersTable) {
+            this.ordersTable.search('').columns().search('').draw();
+        }
+        
+        console.log('🧹 All filters cleared');
+    }
+
+    showSuccess(title, message) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'success',
+                title: title,
+                text: message
+            });
+        } else {
+            alert(`${title}: ${message}`);
+        }
+    }
+
     showError(title, message) {
         if (typeof Swal !== 'undefined') {
             Swal.fire({
@@ -620,13 +900,31 @@ function openAddOrderModal() {
 
 function refreshOrdersTable() {
     if (window.ordersManager) {
-        window.ordersManager.refreshTable();
+        window.ordersManager.refreshOrders();
     }
 }
 
-function exportOrders() {
-    if (window.ordersManager && window.ordersManager.ordersTable) {
-        window.ordersManager.ordersTable.buttons.exportData();
+function exportOrders(format = 'excel') {
+    if (window.ordersManager) {
+        window.ordersManager.exportOrders(format);
+    }
+}
+
+function clearAllFilters() {
+    if (window.ordersManager) {
+        window.ordersManager.clearAllFilters();
+    }
+}
+
+function searchByOrderNumber(orderNumber) {
+    if (window.ordersManager) {
+        window.ordersManager.searchByOrderNumber(orderNumber);
+    }
+}
+
+function searchByCustomer(customerName) {
+    if (window.ordersManager) {
+        window.ordersManager.searchByCustomer(customerName);
     }
 }
 
@@ -641,5 +939,27 @@ $(document).ready(() => {
     if (typeof window.ordersManager === 'undefined') {
         window.ordersManager = new OrdersManager();
     }
+    
+    // Add keyboard shortcuts
+    $(document).on('keydown', (e) => {
+        // Ctrl/Cmd + R for refresh
+        if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+            e.preventDefault();
+            refreshOrdersTable();
+        }
+        
+        // Ctrl/Cmd + E for export
+        if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+            e.preventDefault();
+            exportOrders();
+        }
+        
+        // Escape to clear filters
+        if (e.key === 'Escape') {
+            clearAllFilters();
+        }
+    });
+    
+    console.log('🎯 Orders Manager with enhanced filtering initialized');
 });
 

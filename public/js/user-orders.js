@@ -80,6 +80,30 @@ class UserOrdersManager {
 
         // Refresh button
         $('#refreshBtn').on('click', () => this.refreshOrders());
+        
+        // Advanced search functionality
+        this.setupAdvancedSearch();
+    }
+
+    setupAdvancedSearch() {
+        // Custom search function for better order filtering
+        $.fn.dataTable.ext.search.push((settings, data, dataIndex) => {
+            // Only apply to our orders table
+            if (settings.nTable.id !== 'ordersTable') {
+                return true;
+            }
+            
+            // Apply status filter if not 'all'
+            if (this.currentFilter !== 'all') {
+                const statusColumn = data[4]; // Status column index
+                const filterStatus = this.currentFilter.toUpperCase();
+                if (!statusColumn.includes(filterStatus)) {
+                    return false;
+                }
+            }
+            
+            return true;
+        });
     }
 
     async loadOrders() {
@@ -134,68 +158,191 @@ class UserOrdersManager {
         
         this.ordersTable = $('#ordersTable').DataTable({
             data: this.orders,
+            ...this.getTableConfig()
+        });
+    }
+
+    getTableConfig() {
+        return {
             responsive: true,
+            processing: true,
+            serverSide: false,
             pageLength: 10,
-            lengthMenu: [[5, 10, 25, 50], [5, 10, 25, 50]],
+            lengthMenu: [
+                [5, 10, 15, 25, 50, -1], 
+                [5, 10, 15, 25, 50, "All"]
+            ],
+            dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
+                 '<"row"<"col-sm-12"tr>>' +
+                 '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>' +
+                 '<"row"<"col-sm-12"B>>',
+            autoWidth: false,
+            deferRender: true,
+            stateSave: true,
+            stateDuration: 60 * 60 * 24, // Save state for 24 hours
+            columnDefs: [
+                {
+                    targets: [0], // Order number column
+                    width: '120px',
+                    className: 'text-center align-middle'
+                },
+                {
+                    targets: [1], // Date column
+                    width: '120px',
+                    className: 'text-center align-middle'
+                },
+                {
+                    targets: [2], // Items column
+                    width: '100px',
+                    className: 'text-center align-middle'
+                },
+                {
+                    targets: [3], // Total column
+                    width: '100px',
+                    className: 'text-center align-middle'
+                },
+                {
+                    targets: [4, 5], // Status columns
+                    width: '120px',
+                    className: 'text-center align-middle'
+                },
+                {
+                    targets: [6], // Actions column
+                    width: '150px',
+                    className: 'text-center align-middle'
+                }
+            ],
+            buttons: [
+                {
+                    extend: 'excel',
+                    text: '<i class="fas fa-file-excel"></i> Excel',
+                    className: 'btn btn-success btn-sm me-1',
+                    exportOptions: {
+                        columns: [0, 1, 2, 3, 4, 5] // Exclude actions column
+                    },
+                    title: 'My Orders - ThreadedTreasure'
+                },
+                {
+                    extend: 'pdf',
+                    text: '<i class="fas fa-file-pdf"></i> PDF',
+                    className: 'btn btn-danger btn-sm me-1',
+                    exportOptions: {
+                        columns: [0, 1, 2, 3, 4, 5]
+                    },
+                    title: 'My Orders - ThreadedTreasure'
+                },
+                {
+                    extend: 'print',
+                    text: '<i class="fas fa-print"></i> Print',
+                    className: 'btn btn-info btn-sm',
+                    exportOptions: {
+                        columns: [0, 1, 2, 3, 4, 5]
+                    },
+                    title: 'My Orders - ThreadedTreasure'
+                }
+            ],
             order: [[1, 'desc']], // Sort by date descending
+            pagingType: 'full_numbers',
+            pageInfo: true,
+            searching: true,
+            searchHighlight: true,
             columns: [
                 { 
                     data: 'order_number',
-                    render: (data, type, row) => `<strong>#${data || row.id}</strong>`
+                    title: 'Order #',
+                    render: (data, type, row) => {
+                        if (type === 'export') return `#${data || row.id}`;
+                        return `<strong>#${data || row.id}</strong>`;
+                    }
                 },
                 { 
                     data: 'created_at',
-                    render: (data) => data ? new Date(data).toLocaleDateString() : 'N/A'
+                    title: 'Date',
+                    render: (data, type) => {
+                        if (!data) return 'N/A';
+                        const date = new Date(data);
+                        if (type === 'export') return date.toLocaleDateString();
+                        return `<span title="${date.toLocaleString()}">${date.toLocaleDateString()}</span>`;
+                    }
                 },
                 { 
                     data: 'item_count',
-                    render: (data) => {
+                    title: 'Items',
+                    render: (data, type) => {
                         const count = data || 0;
+                        if (type === 'export') return `${count} ${count === 1 ? 'item' : 'items'}`;
                         return `<span class="badge bg-secondary">${count} ${count === 1 ? 'item' : 'items'}</span>`;
                     }
                 },
                 { 
                     data: 'total_amount',
-                    render: (data) => data ? `$${parseFloat(data).toFixed(2)}` : '$0.00'
+                    title: 'Total',
+                    render: (data, type) => {
+                        const amount = data ? `$${parseFloat(data).toFixed(2)}` : '$0.00';
+                        if (type === 'export') return amount;
+                        return `<strong>${amount}</strong>`;
+                    }
                 },
                 { 
                     data: 'status',
-                    render: (data) => {
+                    title: 'Status',
+                    render: (data, type) => {
+                        const status = (data || 'pending').toUpperCase();
+                        if (type === 'export') return status;
                         const statusClass = `status-${(data || 'pending').toLowerCase()}`;
-                        return `<span class="order-status ${statusClass}">${(data || 'pending').toUpperCase()}</span>`;
+                        return `<span class="order-status ${statusClass}">${status}</span>`;
                     }
                 },
                 { 
                     data: 'payment_status',
-                    render: (data) => {
+                    title: 'Payment',
+                    render: (data, type) => {
+                        const status = (data || 'pending').toUpperCase();
+                        if (type === 'export') return status;
                         const statusClass = `payment-${(data || 'pending').toLowerCase()}`;
-                        return `<span class="payment-status ${statusClass}">${(data || 'pending').toUpperCase()}</span>`;
+                        return `<span class="payment-status ${statusClass}">${status}</span>`;
                     }
                 },
                 {
                     data: null,
+                    title: 'Actions',
                     orderable: false,
                     searchable: false,
-                    render: (data, type, row) => this.getActionButtons(row)
+                    render: (data, type, row) => {
+                        if (type === 'export') return '';
+                        return this.getActionButtons(row);
+                    }
                 }
             ],
+            drawCallback: function() {
+                // Update pagination info
+                const api = this.api();
+                const info = api.page.info();
+                const pageInfo = `Page ${info.page + 1} of ${info.pages} (${info.recordsTotal} total orders)`;
+                $('.dataTables_info').text(pageInfo);
+                
+                // Add debugging
+                console.log('Orders DataTable draw complete. Rows:', info.recordsTotal);
+            },
             language: {
                 search: "_INPUT_",
                 searchPlaceholder: "Search orders...",
-                lengthMenu: "Show _MENU_ orders",
+                lengthMenu: "Show _MENU_ orders per page",
                 info: "Showing _START_ to _END_ of _TOTAL_ orders",
-                infoEmpty: "No orders found",
-                emptyTable: "No orders available",
+                infoEmpty: "No orders available",
+                infoFiltered: "(filtered from _MAX_ total orders)",
+                emptyTable: "No orders found",
                 loadingRecords: "Loading your orders...",
-                processing: "Processing...",
+                processing: '<div class="d-flex justify-content-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>',
                 paginate: {
                     first: '<i class="fas fa-angle-double-left"></i>',
                     previous: '<i class="fas fa-angle-left"></i>',
                     next: '<i class="fas fa-angle-right"></i>',
                     last: '<i class="fas fa-angle-double-right"></i>'
-                }
+                },
+                zeroRecords: "No matching orders found"
             }
-        });
+        };
     }
 
     getActionButtons(order) {
@@ -645,18 +792,143 @@ class UserOrdersManager {
         });
         document.querySelector(`[data-status="${status}"]`).classList.add('active');
         
-        // Filter the table
+        // Apply filter to DataTable
         if (this.ordersTable) {
-            if (status === 'all') {
-                this.ordersTable.search('').draw();
-            } else {
-                this.ordersTable.column(4).search(status.toUpperCase()).draw();
-            }
+            // Clear any existing search and redraw
+            this.ordersTable.search('').draw();
+            
+            // Show loading state
+            this.showTableLoading(true);
+            
+            // Apply filter with animation
+            setTimeout(() => {
+                this.ordersTable.draw();
+                this.showTableLoading(false);
+                
+                // Update filter info
+                this.updateFilterInfo(status);
+            }, 100);
+        }
+    }
+
+    updateFilterInfo(status) {
+        const api = this.ordersTable;
+        if (!api) return;
+        
+        const info = api.page.info();
+        let filterText = '';
+        
+        if (status === 'all') {
+            filterText = `Showing all ${info.recordsTotal} orders`;
+        } else {
+            const filteredCount = info.recordsDisplay;
+            const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
+            filterText = `Showing ${filteredCount} ${statusLabel.toLowerCase()} orders`;
+        }
+        
+        // Update info display
+        $('.dataTables_info').text(filterText);
+        
+        console.log(`🔍 Filter applied: ${status} (${info.recordsDisplay}/${info.recordsTotal} orders)`);
+    }
+
+    showTableLoading(show) {
+        if (show) {
+            $('#ordersTable').addClass('table-loading');
+            $('#ordersTable tbody').append(`
+                <tr class="loading-row">
+                    <td colspan="7" class="text-center p-3">
+                        <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                        Applying filter...
+                    </td>
+                </tr>
+            `);
+        } else {
+            $('#ordersTable').removeClass('table-loading');
+            $('.loading-row').remove();
         }
     }
 
     refreshOrders() {
+        console.log('🔄 Refreshing orders...');
+        
+        // Show loading state
+        this.showLoading(true);
+        
+        // Reset filter to 'all'
+        this.currentFilter = 'all';
+        document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelector('[data-status="all"]').classList.add('active');
+        
+        // Reload orders
         this.loadOrders();
+    }
+
+    exportOrders(format = 'excel') {
+        if (!this.ordersTable) {
+            this.showError('Export Error', 'No data available to export');
+            return;
+        }
+
+        try {
+            console.log(`📊 Exporting orders to ${format}...`);
+            
+            switch (format) {
+                case 'excel':
+                    this.ordersTable.button('.buttons-excel').trigger();
+                    break;
+                case 'pdf':
+                    this.ordersTable.button('.buttons-pdf').trigger();
+                    break;
+                case 'print':
+                    this.ordersTable.button('.buttons-print').trigger();
+                    break;
+                default:
+                    this.showError('Export Error', 'Unsupported export format');
+                    return;
+            }
+            
+            this.showSuccess('Export Success', `Orders exported to ${format.toUpperCase()} successfully!`);
+        } catch (error) {
+            console.error('Export error:', error);
+            this.showError('Export Error', 'Failed to export orders');
+        }
+    }
+
+    // Advanced search methods
+    searchByOrderNumber(orderNumber) {
+        if (this.ordersTable) {
+            this.ordersTable.column(0).search(orderNumber).draw();
+        }
+    }
+
+    searchByDateRange(startDate, endDate) {
+        if (this.ordersTable) {
+            // Custom date range filtering would be implemented here
+            console.log(`🔍 Searching orders from ${startDate} to ${endDate}`);
+        }
+    }
+
+    searchByAmount(minAmount, maxAmount) {
+        if (this.ordersTable) {
+            // Custom amount range filtering would be implemented here
+            console.log(`🔍 Searching orders between $${minAmount} - $${maxAmount}`);
+        }
+    }
+
+    clearAllFilters() {
+        this.currentFilter = 'all';
+        
+        // Reset filter buttons
+        document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelector('[data-status="all"]').classList.add('active');
+        
+        // Clear table search and redraw
+        if (this.ordersTable) {
+            this.ordersTable.search('').columns().search('').draw();
+        }
+        
+        console.log('🧹 All filters cleared');
     }
 
     showLoading(show) {
@@ -706,9 +978,49 @@ function refreshOrders() {
     }
 }
 
+function exportOrders(format = 'excel') {
+    if (window.userOrders) {
+        window.userOrders.exportOrders(format);
+    }
+}
+
+function clearAllFilters() {
+    if (window.userOrders) {
+        window.userOrders.clearAllFilters();
+    }
+}
+
+function searchByOrderNumber(orderNumber) {
+    if (window.userOrders) {
+        window.userOrders.searchByOrderNumber(orderNumber);
+    }
+}
+
 // Initialize User Orders Manager
 let userOrders;
 $(document).ready(() => {
     userOrders = new UserOrdersManager();
     window.userOrders = userOrders;
+    
+    // Add keyboard shortcuts
+    $(document).on('keydown', (e) => {
+        // Ctrl/Cmd + R for refresh
+        if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+            e.preventDefault();
+            refreshOrders();
+        }
+        
+        // Ctrl/Cmd + E for export
+        if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+            e.preventDefault();
+            exportOrders();
+        }
+        
+        // Escape to clear filters
+        if (e.key === 'Escape') {
+            clearAllFilters();
+        }
+    });
+    
+    console.log('🎯 User Orders Manager with enhanced filtering initialized');
 });

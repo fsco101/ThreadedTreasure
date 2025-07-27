@@ -8,17 +8,28 @@ class ComponentLoader {
     // Load a component from file
     async loadComponent(componentPath) {
         try {
-            // Always bypass cache for header.html
+            // Always bypass cache for header.html to ensure fresh content
             const isHeader = componentPath.includes('header.html');
             const fetchPath = isHeader ? `${componentPath}?v=${Date.now()}` : componentPath;
 
-            const response = await fetch(fetchPath, { cache: 'reload' });
+            const response = await fetch(fetchPath, { 
+                cache: isHeader ? 'no-cache' : 'default',
+                headers: {
+                    'Cache-Control': isHeader ? 'no-cache' : 'default'
+                }
+            });
+            
             if (!response.ok) {
-                throw new Error(`Failed to load component: ${componentPath}`);
+                throw new Error(`Failed to load component: ${componentPath} (${response.status})`);
             }
 
             const html = await response.text();
-            this.cache.set(componentPath, html);
+            
+            // Only cache non-header components
+            if (!isHeader) {
+                this.cache.set(componentPath, html);
+            }
+            
             return html;
         } catch (error) {
             console.error('Error loading component:', error);
@@ -43,14 +54,24 @@ class ComponentLoader {
 
     // Load header component
     async loadHeader(selector = 'header-placeholder') {
-        await this.insertComponent(`#${selector}`, '/components/header.html');
+        await this.insertComponent(`#${selector}`, 'components/header.html');
         // After header is loaded, refresh header menus
         if (window.refreshHeaderAuth) window.refreshHeaderAuth();
     }
 
+    // Force reload header (useful for login state changes)
+    async reloadHeader(selector = 'header-placeholder') {
+        const componentPath = 'components/header.html';
+        // Clear any cached version
+        this.cache.delete(componentPath);
+        this.loadedComponents.delete(componentPath);
+        // Load fresh header
+        await this.loadHeader(selector);
+    }
+
     // Load footer component
     async loadFooter(selector = 'footer-placeholder') {
-        await this.insertComponent(`#${selector}`, '/components/footer.html');
+        await this.insertComponent(`#${selector}`, 'components/footer.html');
     }
 
     // Load multiple components
@@ -65,8 +86,8 @@ class ComponentLoader {
     // Initialize common components (header + footer)
     async initializeCommonComponents() {
         const components = [
-            { selector: '#header-placeholder', path: '/components/header.html' },
-            { selector: '#footer-placeholder', path: '/components/footer.html' }
+            { selector: '#header-placeholder', path: 'components/header.html' },
+            { selector: '#footer-placeholder', path: 'components/footer.html' }
         ];
 
         await this.loadComponents(components);
