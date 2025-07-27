@@ -5,17 +5,16 @@ class ComponentLoader {
         this.loadedComponents = new Set();
     }
 
-    // Load a component from file
+    // Load a component from file with cache-busting
     async loadComponent(componentPath) {
         try {
-            // Always bypass cache for header.html to ensure fresh content
-            const isHeader = componentPath.includes('header.html');
-            const fetchPath = isHeader ? `${componentPath}?v=${Date.now()}` : componentPath;
+            // Always append a timestamp query to ensure fresh content
+            const fetchPath = `${componentPath}?v=${Date.now()}`;
 
             const response = await fetch(fetchPath, { 
-                cache: isHeader ? 'no-cache' : 'default',
+                cache: 'no-cache',
                 headers: {
-                    'Cache-Control': isHeader ? 'no-cache' : 'default'
+                    'Cache-Control': 'no-cache'
                 }
             });
             
@@ -24,12 +23,6 @@ class ComponentLoader {
             }
 
             const html = await response.text();
-            
-            // Only cache non-header components
-            if (!isHeader) {
-                this.cache.set(componentPath, html);
-            }
-            
             return html;
         } catch (error) {
             console.error('Error loading component:', error);
@@ -62,10 +55,8 @@ class ComponentLoader {
     // Force reload header (useful for login state changes)
     async reloadHeader(selector = 'header-placeholder') {
         const componentPath = 'components/header.html';
-        // Clear any cached version
         this.cache.delete(componentPath);
         this.loadedComponents.delete(componentPath);
-        // Load fresh header
         await this.loadHeader(selector);
     }
 
@@ -110,7 +101,6 @@ const componentLoader = new ComponentLoader();
 
 // Auto-initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
-    // Check if placeholders exist and load components
     if (document.getElementById('header-placeholder')) {
         componentLoader.loadHeader();
     }
