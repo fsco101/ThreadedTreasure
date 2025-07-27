@@ -1,4 +1,5 @@
 const { promisePool } = require('../config/database');
+const InventoryController = require('./InventoryController');
 
 class OrderController {
   // Get user's orders
@@ -134,18 +135,15 @@ class OrderController {
 
         const orderId = orderResult.insertId;
 
-        // Validate inventory before creating order items
-        for (const item of items) {
-          const [inventoryCheck] = await connection.execute(`
-            SELECT quantity FROM inventory 
-            WHERE product_id = ? AND size = ? AND color = ?
-          `, [item.product_id, item.size || 'One Size', item.color || 'Default']);
-
-          const availableStock = inventoryCheck.length > 0 ? inventoryCheck[0].quantity : 0;
-          
-          if (availableStock < item.quantity) {
-            throw new Error(`Insufficient stock for ${item.product_name}. Available: ${availableStock}, Requested: ${item.quantity}`);
-          }
+        // Validate inventory before creating order items using InventoryController
+        const inventoryCheck = await InventoryController.checkInventoryAvailability(items, connection);
+        if (!inventoryCheck.success) {
+          await connection.rollback();
+          return res.status(400).json({
+            success: false,
+            message: 'Insufficient inventory',
+            details: inventoryCheck.insufficientItems
+          });
         }
 
         // Create order items (don't reduce inventory yet - only reduce when status changes to processing/shipped/delivered)
@@ -224,49 +222,20 @@ class OrderController {
             // Get order items
             const [orderItems] = await connection.execute('SELECT * FROM order_items WHERE order_id = ?', [orderId]);
 
-            const inventoryDeductedStatuses = ['processing', 'shipped', 'delivered'];
-            const inventoryReturnedStatuses = ['cancelled', 'refunded'];
-            const wasInventoryDeducted = inventoryDeductedStatuses.includes(currentStatus);
-            const willInventoryBeDeducted = inventoryDeductedStatuses.includes(status);
-            const willInventoryBeReturned = inventoryReturnedStatuses.includes(status);
+            // Handle inventory changes using the new InventoryController
+            const inventoryResult = await InventoryController.handleOrderStatusInventoryChange(
+                currentStatus, 
+                status, 
+                orderItems, 
+                connection
+            );
 
-            // Deduct inventory if transitioning to deducted status for the first time
-            if (!wasInventoryDeducted && willInventoryBeDeducted) {
-                for (const item of orderItems) {
-                    // Use your inventory table and default values
-                    const [result] = await connection.execute(
-                        `UPDATE inventory 
-                         SET quantity = quantity - ? 
-                         WHERE product_id = ? AND size = ? AND color = ? AND quantity >= ?`,
-                        [
-                            item.quantity,
-                            item.product_id,
-                            item.size || 'One Size',
-                            item.color || 'Default',
-                            item.quantity
-                        ]
-                    );
-                    if (result.affectedRows === 0) {
-                        await connection.rollback();
-                        return res.status(400).json({ success: false, message: `Insufficient stock for ${item.product_name}` });
-                    }
-                }
-            }
-            // Rollback inventory if transitioning from deducted status to cancelled/refunded
-            else if (wasInventoryDeducted && willInventoryBeReturned) {
-                for (const item of orderItems) {
-                    await connection.execute(
-                        `UPDATE inventory 
-                         SET quantity = quantity + ? 
-                         WHERE product_id = ? AND size = ? AND color = ?`,
-                        [
-                            item.quantity,
-                            item.product_id,
-                            item.size || 'One Size',
-                            item.color || 'Default'
-                        ]
-                    );
-                }
+            if (!inventoryResult.success) {
+                await connection.rollback();
+                return res.status(400).json({ 
+                    success: false, 
+                    message: inventoryResult.message 
+                });
             }
 
             // Update order status
@@ -282,51 +251,6 @@ class OrderController {
                 updateFields.push('delivered_at = NOW()');
             }
             updateValues.push(orderId);
-            if (!wasInventoryDeducted && willInventoryBeDeducted) {
-                for (const item of orderItems) {
-                    const [result] = await connection.execute(
-                        `UPDATE inventory 
-                         SET quantity = quantity - ? 
-                         WHERE product_id = ? AND size = ? AND color = ? AND quantity >= ?`,
-                        [
-                            item.quantity,
-                            item.product_id,
-                            item.size || 'One Size',
-                            item.color || 'Default',
-                            item.quantity
-                        ]
-                    );
-                    if (result.affectedRows === 0) {
-                        // Try to get current stock for error message
-                        const [stockCheck] = await connection.execute(
-                            `SELECT quantity FROM inventory 
-                             WHERE product_id = ? AND size = ? AND color = ?`,
-                            [
-                                item.product_id,
-                                item.size || 'One Size',
-                                item.color || 'Default'
-                            ]
-                        );
-                        const currentStock = stockCheck.length > 0 ? stockCheck[0].quantity : 0;
-                        await connection.rollback();
-                        return res.status(400).json({ success: false, message: `Insufficient stock for ${item.product_name}. Available: ${currentStock}, Required: ${item.quantity}` });
-                    }
-                }
-            } else if (wasInventoryDeducted && willInventoryBeReturned) {
-                for (const item of orderItems) {
-                    await connection.execute(
-                        `UPDATE inventory 
-                         SET quantity = quantity + ? 
-                         WHERE product_id = ? AND size = ? AND color = ?`,
-                        [
-                            item.quantity,
-                            item.product_id,
-                            item.size || 'One Size',
-                            item.color || 'Default'
-                        ]
-                    );
-                }
-            }
 
             // Update order status in the database
             const updateQuery = `UPDATE orders SET ${updateFields.join(', ')} WHERE id = ?`;
@@ -375,38 +299,51 @@ class OrderController {
 
       const order = orders[0];
 
-      // Only restore inventory if it was previously deducted
-      const inventoryDeductedStatuses = ['processing', 'shipped', 'delivered'];
-      if (inventoryDeductedStatuses.includes(order.status)) {
-        const [orderItems] = await promisePool.execute(
-          'SELECT * FROM order_items WHERE order_id = ?', 
-          [orderId]
-        );
-
-        for (const item of orderItems) {
-          await promisePool.execute(`
-            UPDATE inventory 
-            SET quantity = quantity + ? 
-            WHERE product_id = ? AND size = ? AND color = ?
-          `, [
-            item.quantity,
-            item.product_id,
-            item.size || 'One Size',
-            item.color || 'Default'
-          ]);
-        }
-      }
-
-      // Update order status
-      await promisePool.execute(
-        'UPDATE orders SET status = "cancelled", updated_at = NOW() WHERE id = ?', 
+      // Get order items for inventory restoration
+      const [orderItems] = await promisePool.execute(
+        'SELECT * FROM order_items WHERE order_id = ?', 
         [orderId]
       );
 
-      res.json({
-        success: true,
-        message: 'Order cancelled successfully'
-      });
+      // Use InventoryController to handle inventory restoration
+      const connection = await promisePool.getConnection();
+      await connection.beginTransaction();
+
+      try {
+        // Handle inventory restoration using the new controller
+        const inventoryResult = await InventoryController.handleOrderStatusInventoryChange(
+          order.status, 
+          'cancelled', 
+          orderItems, 
+          connection
+        );
+
+        if (!inventoryResult.success) {
+          await connection.rollback();
+          return res.status(400).json({ 
+            success: false, 
+            message: inventoryResult.message 
+          });
+        }
+
+        // Update order status
+        await connection.execute(
+          'UPDATE orders SET status = "cancelled", updated_at = NOW() WHERE id = ?', 
+          [orderId]
+        );
+
+        await connection.commit();
+
+        res.json({
+          success: true,
+          message: 'Order cancelled successfully'
+        });
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      } finally {
+        connection.release();
+      }
     } catch (error) {
       console.error('Error cancelling order:', error);
       res.status(500).json({

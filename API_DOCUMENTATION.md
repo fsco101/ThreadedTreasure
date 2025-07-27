@@ -133,20 +133,47 @@ DELETE /api/products/:id
 GET /api/products/search?q=shirt&page=1&limit=10
 ```
 
-### Update Product Stock (Admin Only)
+---
+
+## Inventory API
+
+### Get Product Inventory Details (Admin Only)
 ```
-PUT /api/products/:id/stock
+GET /api/inventory/products/:id
+```
+
+### Update Product Inventory (Admin Only)
+```
+PUT /api/inventory/products/:id
 ```
 **Body:**
 ```json
 {
-  "quantity": 50
+  "quantity": 50,
+  "size": "M",
+  "color": "Blue"
 }
 ```
 
-### Get Low Stock Products
+### Update Specific Inventory Item (Admin Only)
 ```
-GET /api/products/low-stock?threshold=10
+PUT /api/inventory/items/:id
+```
+**Body:**
+```json
+{
+  "quantity": 25
+}
+```
+
+### Get Low Stock Products (Admin Only)
+```
+GET /api/inventory/low-stock?threshold=10
+```
+
+### Get Inventory Reports (Admin Only)
+```
+GET /api/inventory/reports
 ```
 
 ---

@@ -312,24 +312,53 @@ router.put('/:orderId/cancel', authenticateToken, async (req, res) => {
         const order = orders[0];
 
         // Check if order can be cancelled
-        if (order.status !== 'pending') {
+        if (order.status !== 'pending' && order.status !== 'processing') {
             return res.status(400).json({
                 success: false,
-                message: 'Order cannot be cancelled'
+                message: 'Order cannot be cancelled. Only pending and processing orders can be cancelled.'
             });
         }
+
+        // Get order items to restore inventory
+        const [orderItems] = await connection.execute(`
+            SELECT oi.product_id, oi.quantity, oi.size, oi.color, p.name as product_name
+            FROM order_items oi
+            LEFT JOIN products p ON oi.product_id = p.id
+            WHERE oi.order_id = ?
+        `, [orderId]);
+
+        // Start transaction
+        await connection.beginTransaction();
 
         // Update order status
         await connection.execute(`
             UPDATE orders SET status = 'cancelled' WHERE id = ?
         `, [orderId]);
 
+        // Restore inventory if items were found
+        if (orderItems.length > 0) {
+            const InventoryController = require('../controllers/InventoryController');
+            const restoreResult = await InventoryController.restoreInventory(orderItems, connection);
+            
+            if (!restoreResult.success) {
+                await connection.rollback();
+                return res.status(500).json({
+                    success: false,
+                    message: `Failed to restore inventory: ${restoreResult.message}`
+                });
+            }
+        }
+
+        // Commit transaction
+        await connection.commit();
+
         res.json({
             success: true,
-            message: 'Order cancelled successfully'
+            message: 'Order cancelled successfully and inventory restored'
         });
 
     } catch (error) {
+        await connection.rollback();
         console.error('Cancel order error:', error);
         res.status(500).json({
             success: false,

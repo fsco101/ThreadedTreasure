@@ -104,7 +104,7 @@ class UserOrderHistoryManager {
 
     getActionButtons(order) {
         let btns = `<button class='action-btn btn-view' onclick='userOrderHistory.viewOrder(${order.order_id})'><i class='fas fa-eye'></i></button>`;
-        if (order.status === 'processing') {
+        if (order.status === 'pending' || order.status === 'processing') {
             btns += `<button class='action-btn btn-cancel' onclick='userOrderHistory.cancelOrder(${order.order_id})'><i class='fas fa-times'></i></button>`;
         }
         return `<div class='btn-group'>${btns}</div>`;
@@ -149,7 +149,7 @@ class UserOrderHistoryManager {
         try {
             const response = await $.ajax({
                 url: `${API_BASE_URL}/orders/${orderId}/cancel`,
-                method: 'POST',
+                method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
