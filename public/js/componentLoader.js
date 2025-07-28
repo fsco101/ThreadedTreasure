@@ -7,21 +7,11 @@ class ComponentLoader {
 
     // Load a component from file with cache-busting
     async loadComponent(componentPath) {
-        try {
-            const fetchPath = `${componentPath}?v=${Date.now()}`;
-            const response = await fetch(fetchPath, { 
-                cache: 'no-cache',
-                headers: { 'Cache-Control': 'no-cache' }
-            });
-            if (!response.ok) {
-                throw new Error(`Failed to load component: ${componentPath} (${response.status})`);
-            }
-            const html = await response.text();
-            return html;
-        } catch (error) {
-            console.error('Error loading component:', error);
-            return '';
-        }
+        // Add a cache-busting query string
+        const fetchPath = `${componentPath}?v=${Date.now()}`;
+        const response = await fetch(fetchPath, { cache: 'no-cache' });
+        if (!response.ok) throw new Error(`Failed to load component: ${componentPath}`);
+        return await response.text();
     }
 
     // Insert component into DOM

@@ -273,7 +273,7 @@
 </head>
 
 <body>
-    <div id="header-placeholder"></div>
+<div data-component="components/header.html"></div>
 
     <div class="cart-container">
         <div class="cart-header">
@@ -324,13 +324,9 @@
         </div>
     </div>
     <script src="js/cart.js"></script>
-    <div id="footer-placeholder"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
-       <script>document.addEventListener('DOMContentLoaded', function() {
-    componentLoader.insertComponent('#header-placeholder', 'components/header.html');
-    componentLoader.insertComponent('#footer-placeholder', 'components/footer.html');
-});</script>
+    <div data-component="components/footer.html"></div>
     <script src="js/componentLoader.js"></script>
 
     <!-- Header and footer are loaded by componentLoader -->

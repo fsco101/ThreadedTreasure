@@ -1185,7 +1185,8 @@
 
 
 <body>
-    <div id="header-placeholder"></div>
+<div data-component="components/header.html"></div>
+
         <main class="container">
             <section class="hero">
                 <h1>ThreadedTreasure Collection</h1>
@@ -2225,11 +2226,6 @@ $(document).ready(function() {
 <!-- Reviews functionality -->
 <script src="js/reviews.js"></script>
 
-<div id="footer-placeholder"></div>
-<script>document.addEventListener('DOMContentLoaded', function() {
-    componentLoader.insertComponent('#header-placeholder', 'components/header.html');
-    componentLoader.insertComponent('#footer-placeholder', 'components/footer.html');
-});</script>
 <script src="js/componentLoader.js"></script>
 
 </body>
