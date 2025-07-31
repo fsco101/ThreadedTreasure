@@ -120,69 +120,28 @@ class ProductsManager {
                     render: (data, type, row) => `<input type="checkbox" value="${row.id}">`
                 },
                 { data: 'id' },
-                { 
+                {
                     data: 'main_image',
                     orderable: false,
                     searchable: false,
-                    width: '100px',
-                    render: (data, type, row) => {
-                        // Enhanced image handling with fallback logic
-                        let imageUrl = null;
-                        let totalImages = 0;
-                        
-                        console.log(`Rendering image for product ${row.id}:`, {
-                            main_image: data,
-                            images: row.images,
-                            images_count: row.images ? row.images.length : 0
-                        });
-                        
-                        // Primary: Use main_image if available
-                        if (data && data.trim() !== '') {
-                            imageUrl = data.startsWith('/') ? data : `/uploads/products/${data}`;
-                            totalImages = 1;
-                        } 
-                        // Secondary: Use first image from images array
-                        else if (row.images && Array.isArray(row.images) && row.images.length > 0) {
-                            const firstImage = row.images[0];
-                            const imgPath = firstImage.image_path || firstImage.filename;
-                            if (imgPath && imgPath.trim() !== '') {
-                                imageUrl = imgPath.startsWith('/') ? imgPath : `/uploads/products/${imgPath}`;
-                                totalImages = row.images.length;
-                            }
-                        }
-                        
-                        // Count total images including main_image
-                        if (data && data.trim() !== '' && row.images && row.images.length > 0) {
-                            totalImages = row.images.length + 1;
-                        } else if (row.images && row.images.length > 0) {
-                            totalImages = row.images.length;
-                        }
-                        
-                        const hasMultipleImages = totalImages > 1;
-                        
-                        console.log(`Image URL for product ${row.id}:`, imageUrl);
-                        
+                    render: function(data, type, row) {
+                        if (type === 'export') return '';
+                        const initial = row.name ? row.name.charAt(0).toUpperCase() : 'P';
+                        // Always fetch from /uploads/products/
+                        let imgSrc = data
+                            ? `/uploads/products/${data.replace(/^\/+/, '')}`
+                            : '/assets/no-image.png';
                         return `
-                            <div class="product-image-container position-relative" 
-                                 data-product-id="${row.id}"
-                                 ${hasMultipleImages ? `data-bs-toggle="tooltip" data-bs-placement="top" 
-                                                      title="${totalImages} image(s)"` : ''}>
-                                <i class="fas fa-image image-placeholder"></i>
-                                ${imageUrl ? `
-                                    <img src="${imageUrl}" 
-                                         alt="${(row.name || 'Product').replace(/"/g, '&quot;')}" 
-                                         class="product-thumb"
-                                         onload="this.classList.add('loaded'); this.previousElementSibling.style.display='none'; this.parentElement.classList.remove('loading', 'error');"
-                                         onerror="this.style.display='none'; this.previousElementSibling.style.display='flex'; this.parentElement.classList.add('error'); this.parentElement.classList.remove('loading'); console.error('Failed to load image for product ${row.id}:', this.src);"
-                                         onloadstart="this.parentElement.classList.add('loading');">
-                                ` : `
-                                    <div class="no-image-text">No Image</div>
-                                `}
-                                ${hasMultipleImages ? `
-                                    <span class="image-count-badge position-absolute top-0 end-0 bg-primary text-white rounded-circle d-flex align-items-center justify-content-center">
-                                        ${totalImages}
-                                    </span>
-                                ` : ''}
+                            <div class="product-image-container">
+                                <div class="image-placeholder" style="display:flex;align-items:center;justify-content:center;width:48px;height:48px;background:#f3f3f3;border-radius:8px;">
+                                    <span style="font-size:1.5rem;color:#bbb;">${initial}</span>
+                                </div>
+                                <img src="${imgSrc}" 
+                                    alt="Product Image" 
+                                    class="product-thumb"
+                                    style="width:48px;height:48px;object-fit:cover;border-radius:8px;display:none;"
+                                    onload="this.style.display='block';this.previousElementSibling.style.display='none';"
+                                    onerror="this.style.display='none';this.previousElementSibling.style.display='flex';">
                             </div>
                         `;
                     }

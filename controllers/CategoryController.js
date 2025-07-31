@@ -1,4 +1,12 @@
+const mysql = require('mysql2/promise');
 const { promisePool } = require('../config/database');
+
+const dbConfig = {
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'threadedtreasure'
+};
 
 class CategoryController {
   // Create new category
@@ -169,25 +177,20 @@ class CategoryController {
 
   // Get categories with product count
   static async getCategoriesWithProductCount(req, res) {
+    let connection;
     try {
-      const query = `
-        SELECT c.*, COUNT(p.id) as product_count
-        FROM categories c
-        LEFT JOIN products p ON c.id = p.category_id
-        GROUP BY c.id
-        ORDER BY c.name ASC
-      `;
-      const [rows] = await promisePool.execute(query);
-      
-      res.json({
-        success: true,
-        data: rows
-      });
+        connection = await mysql.createConnection(dbConfig);
+        const [categories] = await connection.execute(`
+            SELECT 
+                c.*, 
+                (SELECT COUNT(*) FROM products p WHERE p.category_id = c.id) AS products_count
+            FROM categories c
+        `);
+        res.json({ success: true, data: categories });
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: error.message
-      });
+        res.status(500).json({ success: false, message: error.message });
+    } finally {
+        if (connection) await connection.end();
     }
   }
 }

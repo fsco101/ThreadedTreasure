@@ -7,153 +7,220 @@
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             --primary-color: #667eea;
             --secondary-color: #764ba2;
-            --admin-color: #dc3545;
+            --accent-color: #4facfe;
+            --dark-color: #2d3436;
+            --light-gray: #f8f9fa;
+            --border-radius: 16px;
+            --shadow-primary: 0 20px 40px rgba(102, 126, 234, 0.1);
+            --shadow-hover: 0 25px 50px rgba(102, 126, 234, 0.15);
         }
 
+        * {
+            box-sizing: border-box;
+        }
+        .main-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    margin-top: 0;
+}
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--primary-gradient);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
-            padding-top: 80px; /* Account for fixed header */
+            padding: 2rem 1rem;
+            position: relative;
+            overflow-x: hidden;
+            padding-bottom: 200px;
+        }
+        .main-footer {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    margin-top: 3rem;
+    color: white;
+}
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.05)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.05)"/><circle cx="50" cy="10" r="1" fill="rgba(255,255,255,0.03)"/><circle cx="10" cy="60" r="1" fill="rgba(255,255,255,0.03)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+            pointer-events: none;
         }
 
         .login-container {
-            background: white;
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 3rem 2.5rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-primary);
             width: 100%;
-            max-width: 450px;
+            max-width: 480px;
+            position: relative;
+            transition: all 0.3s ease;
+             margin: 0 auto;
+        }
+
+        .login-container:hover {
+            box-shadow: var(--shadow-hover);
+            transform: translateY(-5px);
         }
 
         .login-header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 2.5rem;
         }
 
-        .login-header .brand-logo {
-            font-size: 2.5rem;
-            color: var(--primary-color);
-            margin-bottom: 10px;
+        .brand-logo {
+            width: 80px;
+            height: 80px;
+            background: var(--primary-gradient);
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+            animation: logoFloat 3s ease-in-out infinite;
+        }
+
+        @keyframes logoFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .brand-logo i {
+            font-size: 2rem;
+            color: white;
         }
 
         .login-header h1 {
-            color: var(--primary-color);
+            color: var(--dark-color);
             font-weight: 700;
-            margin-bottom: 10px;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.02em;
         }
-        
 
         .login-header p {
             color: #6c757d;
-            margin: 0;
+            font-weight: 400;
+            font-size: 1rem;
         }
 
-        .form-group {
-            margin-bottom: 20px;
+        .form-floating {
+            margin-bottom: 1.5rem;
         }
 
-        .form-label {
-            font-weight: 600;
-            color: #495057;
-            margin-bottom: 8px;
-        }
-
-        .form-control {
+        .form-floating > .form-control {
             border: 2px solid #e9ecef;
-            border-radius: 10px;
-            padding: 12px 16px;
-            font-size: 16px;
+            border-radius: 12px;
+            padding: 1rem 1rem;
+            font-size: 1rem;
             transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.8);
+            height: auto;
         }
 
-        .form-control:focus {
+        .form-floating > .form-control:focus {
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+            box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.15);
+            background: white;
         }
 
-        .input-group-text {
-            background: none;
-            border: none;
+        .form-floating > label {
             color: #6c757d;
-            cursor: pointer;
-            position: absolute;
-            right: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            z-index: 3;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            border: none;
-            border-radius: 10px;
-            padding: 12px 30px;
-            font-weight: 600;
-            width: 100%;
-            transition: all 0.3s ease;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn-primary:disabled {
-            background: #6c757d;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .auth-links {
-            text-align: center;
-            margin-top: 20px;
-        }
-
-        .auth-links a {
-            color: var(--primary-color);
-            text-decoration: none;
             font-weight: 500;
         }
 
-        .auth-links a:hover {
-            text-decoration: underline;
+        .password-toggle {
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6c757d;
+            cursor: pointer;
+            z-index: 5;
+            transition: color 0.3s ease;
         }
 
-        .is-invalid {
-            border-color: #dc3545;
+        .password-toggle:hover {
+            color: var(--primary-color);
         }
 
-        .invalid-feedback {
-            display: block;
-            color: #dc3545;
-            font-size: 0.875rem;
-            margin-top: 5px;
+        .btn-primary-custom {
+            background: var(--primary-gradient);
+            border: none;
+            border-radius: 12px;
+            padding: 1rem 2rem;
+            font-weight: 600;
+            font-size: 1rem;
+            width: 100%;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
         }
 
-        .is-valid {
-            border-color: #28a745;
+        .btn-primary-custom::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s ease;
         }
 
-        .valid-feedback {
-            display: block;
-            color: #28a745;
-            font-size: 0.875rem;
-            margin-top: 5px;
+        .btn-primary-custom:hover::before {
+            left: 100%;
         }
 
-        .loading-spinner {
-            display: none;
-            margin-right: 8px;
+        .btn-primary-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary-custom:disabled {
+            background: #6c757d;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-outline-custom {
+            border: 2px solid var(--primary-color);
+            color: var(--primary-color);
+            border-radius: 12px;
+            padding: 1rem 2rem;
+            font-weight: 600;
+            width: 100%;
+            transition: all 0.3s ease;
+            background: transparent;
+        }
+
+        .btn-outline-custom:hover {
+            background: var(--primary-color);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
         }
 
         .form-check-input:checked {
@@ -162,30 +229,11 @@
         }
 
         .form-check-input:focus {
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
-        }
-
-        .required {
-            color: #dc3545;
-        }
-
-        .forgot-password {
-            text-align: right;
-            margin-top: 10px;
-        }
-
-        .forgot-password a {
-            color: var(--primary-color);
-            text-decoration: none;
-            font-size: 0.9rem;
-        }
-
-        .forgot-password a:hover {
-            text-decoration: underline;
+            box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25);
         }
 
         .divider {
-            margin: 30px 0;
+            margin: 2rem 0;
             position: relative;
             text-align: center;
         }
@@ -197,47 +245,120 @@
             left: 0;
             right: 0;
             height: 1px;
-            background: #e9ecef;
+            background: linear-gradient(90deg, transparent, #dee2e6, transparent);
         }
 
         .divider span {
-            background: white;
-            padding: 0 15px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 0 1.5rem;
             color: #6c757d;
+            font-weight: 500;
             font-size: 0.9rem;
         }
 
-        .btn-outline-primary {
-            border: 2px solid var(--primary-color);
+        .auth-links {
+            text-align: center;
+            margin-top: 2rem;
+        }
+
+        .auth-links a {
             color: var(--primary-color);
-            border-radius: 10px;
-            padding: 12px 30px;
-            font-weight: 600;
-            width: 100%;
+            text-decoration: none;
+            font-weight: 500;
             transition: all 0.3s ease;
         }
 
-        .btn-outline-primary:hover {
-            background: var(--primary-color);
-            border-color: var(--primary-color);
-            color: white;
-            transform: translateY(-2px);
-        }
-
-        .admin-link {
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid #e9ecef;
-        }
-
-        .admin-link a {
+        .auth-links a:hover {
             color: var(--secondary-color);
-            font-weight: 600;
+            text-decoration: underline;
+        }
+
+        .forgot-password {
+            text-align: right;
+            margin-top: 0.5rem;
+        }
+
+        .forgot-password a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .is-invalid {
+            border-color: #dc3545 !important;
+        }
+
+        .is-valid {
+            border-color: #28a745 !important;
+        }
+
+        .loading-spinner {
+            display: none;
+            margin-right: 0.5rem;
+        }
+
+        .toast {
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .modal-content {
+            border-radius: var(--border-radius);
+            border: none;
+            box-shadow: var(--shadow-primary);
+        }
+
+        .modal-header {
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .social-login {
+            margin-top: 1rem;
+        }
+
+        .btn-social {
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.5rem;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .btn-social:hover {
+            border-color: var(--primary-color);
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        @media (max-width: 576px) {
+            .login-container {
+                padding: 2rem 1.5rem;
+                margin: 1rem;
+            }
+            
+            .brand-logo {
+                width: 60px;
+                height: 60px;
+            }
+            
+            .brand-logo i {
+                font-size: 1.5rem;
+            }
+            
+            .login-header h1 {
+                font-size: 1.75rem;
+            }
         }
     </style>
 </head>
 <body>
-    <div id="header-placeholder"></div>
     <div class="login-container">
         <div class="login-header">
             <div class="brand-logo">
@@ -248,42 +369,40 @@
         </div>
 
         <form id="loginForm">
-            <div class="form-group">
-                <label class="form-label">Email Address <span class="required">*</span></label>
-                <input type="email" class="form-control" id="email" name="email" required>
+            <div class="form-floating">
+                <input type="email" class="form-control" id="email" name="email" placeholder="Email Address" required>
+                <label for="email"><i class="fas fa-envelope me-2"></i>Email Address</label>
                 <div class="invalid-feedback"></div>
                 <div class="valid-feedback"></div>
             </div>
 
-            <div class="form-group">
-                <label class="form-label">Password <span class="required">*</span></label>
-                <div class="input-group">
-                    <input type="password" class="form-control" id="password" name="password" required>
-                    <span class="input-group-text" id="togglePassword">
-                        <i class="fas fa-eye"></i>
-                    </span>
-                </div>
+            <div class="form-floating position-relative">
+                <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
+                <label for="password"><i class="fas fa-lock me-2"></i>Password</label>
+                <span class="password-toggle" id="togglePassword">
+                    <i class="fas fa-eye"></i>
+                </span>
                 <div class="invalid-feedback"></div>
                 <div class="valid-feedback"></div>
-                <div class="forgot-password">
-                    <a href="#" onclick="showForgotPassword()">Forgot Password?</a>
-                </div>
             </div>
 
-            <div class="form-group">
+            <div class="d-flex justify-content-between align-items-center mb-3">
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="rememberMe" name="rememberMe">
                     <label class="form-check-label" for="rememberMe">
                         Remember me
                     </label>
                 </div>
+                <div class="forgot-password">
+                    <a href="#" onclick="showForgotPassword()">Forgot Password?</a>
+                </div>
             </div>
 
-            <button type="submit" class="btn btn-primary" id="loginBtn">
+            <button type="submit" class="btn btn-primary-custom" id="loginBtn">
                 <span class="loading-spinner">
                     <i class="fas fa-spinner fa-spin"></i>
                 </span>
-                Sign In
+                <i class="fas fa-sign-in-alt me-2"></i>Sign In
             </button>
         </form>
 
@@ -291,26 +410,25 @@
             <span>or</span>
         </div>
 
-        <button type="button" class="btn btn-outline-primary" onclick="window.location.href='users/register.html'">
-            <i class="fas fa-user-plus me-2"></i>
-            Create New Account
+        <button type="button" class="btn btn-outline-custom" onclick="window.location.href='register.html'">
+            <i class="fas fa-user-plus me-2"></i>Create New Account
         </button>
 
         <div class="auth-links">
-            <p>Don't have an account? <a href="users/register.html">Sign up here</a></p>
-            <p class="text-muted small">Use your admin credentials to access admin features</p>
+            <p class="mb-2">Don't have an account? <a href="register.html">Sign up here</a></p>
+            <p class="text-muted small mb-2">Use your admin credentials to access admin features</p>
             <p class="text-muted small">
-                <a href="#" onclick="clearSession()" style="color: #dc3545;">Clear Session & Login Again</a>
+                <a href="#" onclick="clearSession()" class="text-danger">Clear Session & Login Again</a>
             </p>
         </div>
     </div>
 
     <!-- Toast Container -->
-    <div class="toast-container position-fixed top-0 end-0 p-3">
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1055;">
         <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
             <div class="toast-header">
-                <i class="fas fa-info-circle me-2"></i>
-                <strong class="me-auto">Notification</strong>
+                <i class="fas fa-info-circle me-2 text-primary"></i>
+                <strong class="me-auto">ThreadedTreasure</strong>
                 <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
             </div>
             <div class="toast-body" id="toastMessage"></div>
@@ -319,31 +437,31 @@
 
     <!-- Forgot Password Modal -->
     <div class="modal fade" id="forgotPasswordModal" tabindex="-1" aria-labelledby="forgotPasswordModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="forgotPasswordModalLabel">
-                        <i class="fas fa-key me-2"></i>Reset Password
+                        <i class="fas fa-key me-2 text-primary"></i>Reset Password
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
+                    <p class="text-muted mb-3">Enter your email address and we'll send you a link to reset your password.</p>
                     <form id="forgotPasswordForm">
-                        <div class="form-group">
-                            <label class="form-label">Email Address</label>
-                            <input type="email" class="form-control" id="forgotEmail" required>
+                        <div class="form-floating mb-3">
+                            <input type="email" class="form-control" id="forgotEmail" placeholder="Email Address" required>
+                            <label for="forgotEmail"><i class="fas fa-envelope me-2"></i>Email Address</label>
                             <div class="invalid-feedback"></div>
-                            <div class="form-text">We'll send you a link to reset your password.</div>
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="sendResetBtn">
+                    <button type="button" class="btn btn-primary-custom" id="sendResetBtn">
                         <span class="loading-spinner">
                             <i class="fas fa-spinner fa-spin"></i>
                         </span>
-                        Send Reset Link
+                        <i class="fas fa-paper-plane me-2"></i>Send Reset Link
                     </button>
                 </div>
             </div>
@@ -357,13 +475,11 @@
     <script>
         $(document).ready(function() {
             // Check if user is already logged in
-            // Allow accessing login page with ?force=true parameter for testing
             const urlParams = new URLSearchParams(window.location.search);
             const forceLogin = urlParams.get('force') === 'true';
             
             if (localStorage.getItem('userToken') && !forceLogin) {
-                // Show a message with option to continue or logout
-                showToast('You are already logged in. <a href="logout.html" style="color: white; text-decoration: underline;">Logout</a> or <a href="#" onclick="continueAsLoggedIn()" style="color: white; text-decoration: underline;">Continue to Shop</a>', 'info', 5000);
+                showToast('You are already logged in. <a href="#" onclick="continueAsLoggedIn()" style="color: white; text-decoration: underline;">Continue to Shop</a> or <a href="#" onclick="clearSession()" style="color: white; text-decoration: underline;">Logout</a>', 'info', 5000);
             }
 
             // Password visibility toggle
@@ -392,7 +508,6 @@
             // Form submission
             $('#loginForm').on('submit', function(e) {
                 e.preventDefault();
-                
                 if (validateForm()) {
                     loginUser();
                 }
@@ -413,10 +528,8 @@
 
         function validateForm() {
             let isValid = true;
-            
             isValid = validateEmail($('#email')) && isValid;
             isValid = validatePassword($('#password')) && isValid;
-            
             return isValid;
         }
 
@@ -471,7 +584,6 @@
             const loginBtn = $('#loginBtn');
             const spinner = loginBtn.find('.loading-spinner');
             
-            // Show loading state
             loginBtn.prop('disabled', true);
             spinner.show();
             
@@ -488,33 +600,27 @@
                 data: JSON.stringify(formData),
                 success: function(response) {
                     if (response.success) {
-                        // Store JWT token and user info
                         localStorage.setItem('userToken', response.data.token);
-
-                        // --- is_active logic added here ---
+                        
                         let user = response.data.user;
-                        // If is_active is missing, default to 1 (active)
                         if (typeof user.is_active === 'undefined') user.is_active = 1;
-
-                        // Only allow login if user is active
+                        
                         if (user.is_active) {
                             localStorage.setItem('userData', JSON.stringify(user));
-
-                            // Dispatch events to notify header and other components
+                            
                             if (window.refreshHeaderAuth) window.refreshHeaderAuth();
                             window.dispatchEvent(new CustomEvent('loginSuccess', {
                                 detail: { user: user }
                             }));
                             window.dispatchEvent(new CustomEvent('authChanged'));
-
-                            showToast('Login successful! Welcome back!', 'success');
+                            
+                            showToast('Welcome back! Redirecting to shop...', 'success');
                             setTimeout(function() {
                                 window.location.href = '/shop.html';
                             }, 1500);
                         } else {
                             showToast('Your account is deactivated. Please contact support.', 'error');
                         }
-                        // --- end is_active logic ---
                     } else {
                         showToast(response.message || 'Login failed. Please try again.', 'error');
                     }
@@ -549,7 +655,6 @@
                 return;
             }
             
-            // Show loading state
             sendResetBtn.prop('disabled', true);
             spinner.show();
             
@@ -562,11 +667,9 @@
                     if (response.success) {
                         showToast('Password reset link sent! Check your email.', 'success');
                         
-                        // Close modal
                         const modal = bootstrap.Modal.getInstance(document.getElementById('forgotPasswordModal'));
                         modal.hide();
                         
-                        // Reset form
                         $('#forgotPasswordForm')[0].reset();
                         emailField.removeClass('is-invalid is-valid');
                     } else {
@@ -589,15 +692,12 @@
         }
 
         function clearSession() {
-            // Clear all authentication data
             localStorage.removeItem('userToken');
             localStorage.removeItem('userData');
             sessionStorage.clear();
             
-            // Show success message
             showToast('Session cleared! You can now login again.', 'success');
             
-            // Reload the page to reset the login form
             setTimeout(() => {
                 window.location.reload();
             }, 1000);
@@ -606,29 +706,18 @@
         function continueAsLoggedIn() {
             const userData = localStorage.getItem('userData');
             if (userData) {
-                try {
-                    const user = JSON.parse(userData);
-                    if (user.role === 'admin') {
-                        window.location.href = '/shop.html';
-                    } else {
-                        window.location.href = '/shop.html';
-                    }
-                } catch (error) {
-                    console.error('Error parsing user data:', error);
-                    window.location.href = '/shop.html';
-                }
+                window.location.href = '/shop.html';
             } else {
                 window.location.href = '/shop.html';
-            }s
+            }
         }
 
         function showToast(message, type = 'info', duration = 3000) {
             const toastEl = $('#toast');
             const toastBody = $('#toastMessage');
             
-            toastBody.html(message); // Use html() instead of text() to support links
+            toastBody.html(message);
             
-            // Update toast style based on type
             toastEl.removeClass('bg-danger bg-success bg-warning bg-primary text-white');
             
             if (type === 'error') {
@@ -647,8 +736,8 @@
             toast.show();
         }
     </script>
+    
     <div data-component="../components/footer.html"></div>
-
-<script src="../js/componentLoader.js"></script>
+    <script src="../js/componentLoader.js"></script>
 </body>
 </html>

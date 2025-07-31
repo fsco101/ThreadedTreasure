@@ -774,4 +774,46 @@ router.get('/my-orders', authenticateToken, async (req, res) => {
     }
 });
 
+// Check if user has purchased a specific product
+router.get('/user/:userId/check-purchase/:productId', authenticateToken, async (req, res) => {
+    let connection;
+    try {
+        const { userId, productId } = req.params;
+
+        // Verify the user is accessing their own data or is an admin
+        if (req.user.id !== parseInt(userId) && req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied'
+            });
+        }
+
+        connection = await mysql.createConnection(dbConfig);
+
+        const [results] = await connection.execute(`
+            SELECT COUNT(*) as purchase_count
+            FROM orders o
+            JOIN order_items oi ON o.id = oi.order_id
+            WHERE o.user_id = ? 
+            AND oi.product_id = ? 
+            AND o.payment_status = 'completed'
+        `, [userId, productId]);
+
+        const hasPurchased = results[0].purchase_count > 0;
+
+        res.json({
+            success: true,
+            hasPurchased: hasPurchased
+        });
+    } catch (error) {
+        console.error('Error checking purchase:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error'
+        });
+    } finally { 
+        if (connection) await connection.end();
+    }
+});
+
 module.exports = router;

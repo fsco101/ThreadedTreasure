@@ -7,146 +7,239 @@
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             --primary-color: #667eea;
             --secondary-color: #764ba2;
+            --accent-color: #4facfe;
+            --dark-color: #2d3436;
+            --light-gray: #f8f9fa;
+            --border-radius: 16px;
+            --shadow-primary: 0 20px 40px rgba(102, 126, 234, 0.1);
+            --shadow-hover: 0 25px 50px rgba(102, 126, 234, 0.15);
         }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        .main-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    margin-top: 0;
+}
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--primary-gradient);
             min-height: 100vh;
-            display: flex;
+            padding: 2rem 1rem;
+            position: relative;
+            overflow-x: hidden;
             align-items: center;
             justify-content: center;
-            padding: 20px;
-            padding-top: 80px; /* Account for fixed header */
         }
 
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.05)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.05)"/><circle cx="50" cy="10" r="1" fill="rgba(255,255,255,0.03)"/><circle cx="10" cy="60" r="1" fill="rgba(255,255,255,0.03)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+            pointer-events: none;
+        }
+        
+
         .register-container {
-            background: white;
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 3rem 2.5rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-primary);
             width: 100%;
-            max-width: 500px;
+            max-width: 540px;
+            position: relative;
+            transition: all 0.3s ease;
+             margin: 0 auto;
+        }
+
+        .register-container:hover {
+            box-shadow: var(--shadow-hover);
+            transform: translateY(-5px);
         }
 
         .register-header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 2.5rem;
         }
 
-        .register-header .brand-logo {
-            font-size: 2.5rem;
-            color: var(--primary-color);
-            margin-bottom: 10px;
+        .brand-logo {
+            width: 80px;
+            height: 80px;
+            background: var(--primary-gradient);
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+            animation: logoFloat 3s ease-in-out infinite;
+        }
+
+        @keyframes logoFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .brand-logo i {
+            font-size: 2rem;
+            color: white;
         }
 
         .register-header h1 {
-            color: var(--primary-color);
+            color: var(--dark-color);
             font-weight: 700;
-            margin-bottom: 10px;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.02em;
         }
 
         .register-header p {
             color: #6c757d;
-            margin: 0;
+            font-weight: 400;
+            font-size: 1rem;
         }
 
-        .form-group {
-            margin-bottom: 20px;
+        .form-floating {
+            margin-bottom: 1.25rem;
         }
 
-        .form-label {
-            font-weight: 600;
-            color: #495057;
-            margin-bottom: 8px;
-        }
-
-        .form-control {
+        .form-floating > .form-control {
             border: 2px solid #e9ecef;
-            border-radius: 10px;
-            padding: 12px 16px;
-            font-size: 16px;
+            border-radius: 12px;
+            padding: 1rem 1rem;
+            font-size: 1rem;
             transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.8);
+            height: auto;
         }
 
-        .form-control:focus {
+        .form-floating > .form-control:focus {
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+            box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.15);
+            background: white;
         }
 
-        .input-group-text {
-            background: none;
-            border: none;
+        .form-floating > label {
             color: #6c757d;
-            cursor: pointer;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            border: none;
-            border-radius: 10px;
-            padding: 12px 30px;
-            font-weight: 600;
-            width: 100%;
-            transition: all 0.3s ease;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn-primary:disabled {
-            background: #6c757d;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .auth-links {
-            text-align: center;
-            margin-top: 20px;
-        }
-
-        .auth-links a {
-            color: var(--primary-color);
-            text-decoration: none;
             font-weight: 500;
         }
 
-        .auth-links a:hover {
-            text-decoration: underline;
+        .password-toggle {
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6c757d;
+            cursor: pointer;
+            z-index: 5;
+            transition: color 0.3s ease;
         }
 
-        .is-invalid {
-            border-color: #dc3545;
+        .password-toggle:hover {
+            color: var(--primary-color);
         }
 
-        .invalid-feedback {
-            display: block;
-            color: #dc3545;
+        .password-strength {
+            margin-top: 0.5rem;
             font-size: 0.875rem;
-            margin-top: 5px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
-        .is-valid {
-            border-color: #28a745;
+        .strength-indicator {
+            flex: 1;
+            height: 4px;
+            background: #e9ecef;
+            border-radius: 2px;
+            overflow: hidden;
         }
 
-        .valid-feedback {
-            display: block;
-            color: #28a745;
-            font-size: 0.875rem;
-            margin-top: 5px;
+        .strength-bar {
+            height: 100%;
+            transition: all 0.3s ease;
+            border-radius: 2px;
         }
 
-        .loading-spinner {
-            display: none;
-            margin-right: 8px;
+        .strength-weak .strength-bar { 
+            width: 33%;
+            background: #dc3545; 
+        }
+        .strength-medium .strength-bar { 
+            width: 66%;
+            background: #fd7e14; 
+        }
+        .strength-strong .strength-bar { 
+            width: 100%;
+            background: #28a745; 
+        }
+
+        .strength-text {
+            font-weight: 500;
+            min-width: 80px;
+        }
+        .strength-weak .strength-text { color: #dc3545; }
+        .strength-medium .strength-text { color: #fd7e14; }
+        .strength-strong .strength-text { color: #28a745; }
+
+        .btn-primary-custom {
+            background: var(--primary-gradient);
+            border: none;
+            border-radius: 12px;
+            padding: 1rem 2rem;
+            font-weight: 600;
+            font-size: 1rem;
+            width: 100%;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary-custom::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn-primary-custom:hover::before {
+            left: 100%;
+        }
+
+        .btn-primary-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary-custom:disabled {
+            background: #6c757d;
+            transform: none;
+            box-shadow: none;
         }
 
         .form-check-input:checked {
@@ -155,127 +248,233 @@
         }
 
         .form-check-input:focus {
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+            box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25);
         }
 
-        .password-strength {
-            margin-top: 5px;
-            font-size: 12px;
+        .form-check-label {
+            font-weight: 400;
+            color: #495057;
         }
 
-        .strength-weak { color: #dc3545; }
-        .strength-medium { color: #fd7e14; }
-        .strength-strong { color: #28a745; }
+        .form-check-label a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 500;
+        }
 
-        .required {
-            color: #dc3545;
+        .form-check-label a:hover {
+            text-decoration: underline;
+        }
+
+        .auth-links {
+            text-align: center;
+            margin-top: 2rem;
+        }
+
+        .auth-links a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .auth-links a:hover {
+            color: var(--secondary-color);
+            text-decoration: underline;
+        }
+
+        .is-invalid {
+            border-color: #dc3545 !important;
+        }
+
+        .is-valid {
+            border-color: #28a745 !important;
+        }
+
+        .loading-spinner {
+            display: none;
+            margin-right: 0.5rem;
+        }
+
+        .toast {
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .progress {
+            height: 8px;
+            border-radius: 4px;
+            background: #e9ecef;
+            overflow: hidden;
+            margin-top: 1rem;
+        }
+
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
+
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .step {
+            width: 40px;
+            height: 4px;
+            background: #e9ecef;
+            border-radius: 2px;
+            transition: all 0.3s ease;
+        }
+
+        .step.active {
+            background: var(--primary-color);
+        }
+
+        @media (max-width: 576px) {
+            .register-container {
+                padding: 2rem 1.5rem;
+                margin: 1rem;
+            }
+            
+            .brand-logo {
+                width: 60px;
+                height: 60px;
+            }
+            
+            .brand-logo i {
+                font-size: 1.5rem;
+            }
+            
+            .register-header h1 {
+                font-size: 1.75rem;
+            }
         }
     </style>
 </head>
 <body>
-    <div id="header-placeholder"></div>
     <div class="register-container">
         <div class="register-header">
             <div class="brand-logo">
                 <i class="fas fa-tshirt"></i>
             </div>
             <h1>Create Account</h1>
-            <p>Join ThreadedTreasure today</p>
+            <p>Join ThreadedTreasure community today</p>
+        </div>
+
+        <div class="step-indicator">
+            <div class="step active"></div>
+            <div class="step"></div>
+            <div class="step"></div>
         </div>
 
         <form id="registerForm">
             <input type="hidden" name="role" value="user">
-            <div class="form-group">
-                <label class="form-label">Full Name <span class="required">*</span></label>
-                <input type="text" class="form-control" id="fullName" name="name" required>
-                <div class="invalid-feedback"></div>
-                <div class="valid-feedback"></div>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Email Address <span class="required">*</span></label>
-                <input type="email" class="form-control" id="email" name="email" required>
-                <div class="invalid-feedback"></div>
-                <div class="valid-feedback"></div>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Phone Number</label>
-                <input type="tel" class="form-control" id="phone" name="phone" placeholder="+1 (555) 123-4567">
-                <div class="invalid-feedback"></div>
-                <div class="valid-feedback"></div>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Address</label>
-                <input type="text" class="form-control" id="address" name="address">
-                <div class="invalid-feedback"></div>
-                <div class="valid-feedback"></div>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Password <span class="required">*</span></label>
-                <div class="input-group">
-                    <input type="password" class="form-control" id="password" name="password" required>
-                    <span class="input-group-text" id="togglePassword">
-                        <i class="fas fa-eye"></i>
-                    </span>
+            
+            <div class="row g-3">
+                <div class="col-12">
+                    <div class="form-floating">
+                        <input type="text" class="form-control" id="fullName" name="name" placeholder="Full Name" required>
+                        <label for="fullName"><i class="fas fa-user me-2"></i>Full Name</label>
+                        <div class="invalid-feedback"></div>
+                        <div class="valid-feedback"></div>
+                    </div>
                 </div>
-                <div class="password-strength" id="passwordStrength"></div>
-                <div class="invalid-feedback"></div>
-                <div class="valid-feedback"></div>
-            </div>
 
-            <div class="form-group">
-                <label class="form-label">Confirm Password <span class="required">*</span></label>
-                <div class="input-group">
-                    <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" required>
-                    <span class="input-group-text" id="toggleConfirmPassword">
-                        <i class="fas fa-eye"></i>
-                    </span>
+                <div class="col-12">
+                    <div class="form-floating">
+                        <input type="email" class="form-control" id="email" name="email" placeholder="Email Address" required>
+                        <label for="email"><i class="fas fa-envelope me-2"></i>Email Address</label>
+                        <div class="invalid-feedback"></div>
+                        <div class="valid-feedback"></div>
+                    </div>
                 </div>
-                <div class="invalid-feedback"></div>
-                <div class="valid-feedback"></div>
-            </div>
 
-            <div class="form-group">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="agreeTerms" name="agreeTerms" required>
-                    <label class="form-check-label" for="agreeTerms">
-                        I agree to the <a href="#" target="_blank">Terms of Service</a> and <a href="#" target="_blank">Privacy Policy</a>
-                    </label>
-                    <div class="invalid-feedback"></div>
+                <div class="col-md-6">
+                    <div class="form-floating">
+                        <input type="tel" class="form-control" id="phone" name="phone" placeholder="Phone Number">
+                        <label for="phone"><i class="fas fa-phone me-2"></i>Phone Number</label>
+                        <div class="invalid-feedback"></div>
+                        <div class="valid-feedback"></div>
+                    </div>
                 </div>
-            </div>
 
-            <div class="form-group">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="newsletter" name="newsletter">
-                    <label class="form-check-label" for="newsletter">
-                        Subscribe to our newsletter for updates and promotions
-                    </label>
+                <div class="col-md-6">
+                    <div class="form-floating">
+                        <input type="text" class="form-control" id="address" name="address" placeholder="Address">
+                        <label for="address"><i class="fas fa-map-marker-alt me-2"></i>Address</label>
+                        <div class="invalid-feedback"></div>
+                        <div class="valid-feedback"></div>
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <div class="form-floating position-relative">
+                        <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
+                        <label for="password"><i class="fas fa-lock me-2"></i>Password</label>
+                        <span class="password-toggle" id="togglePassword">
+                            <i class="fas fa-eye"></i>
+                        </span>
+                        <div class="invalid-feedback"></div>
+                        <div class="valid-feedback"></div>
+                    </div>
+                    <div class="password-strength" id="passwordStrength" style="display: none;">
+                        <div class="strength-indicator">
+                            <div class="strength-bar"></div>
+                        </div>
+                        <span class="strength-text"></span>
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <div class="form-floating position-relative">
+                        <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" placeholder="Confirm Password" required>
+                        <label for="confirmPassword"><i class="fas fa-lock me-2"></i>Confirm Password</label>
+                        <span class="password-toggle" id="toggleConfirmPassword">
+                            <i class="fas fa-eye"></i>
+                        </span>
+                        <div class="invalid-feedback"></div>
+                        <div class="valid-feedback"></div>
+                    </div>
                 </div>
             </div>
 
-            <button type="submit" class="btn btn-primary" id="registerBtn">
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="agreeTerms" name="agreeTerms" required>
+                <label class="form-check-label" for="agreeTerms">
+                    I agree to the <a href="#" target="_blank">Terms of Service</a> and <a href="#" target="_blank">Privacy Policy</a>
+                </label>
+                <div class="invalid-feedback"></div>
+            </div>
+
+            <div class="form-check mb-4">
+                <input class="form-check-input" type="checkbox" id="newsletter" name="newsletter">
+                <label class="form-check-label" for="newsletter">
+                    <i class="fas fa-envelope-open me-2"></i>Subscribe to our newsletter for updates and promotions
+                </label>
+            </div>
+
+            <button type="submit" class="btn btn-primary-custom" id="registerBtn">
                 <span class="loading-spinner">
                     <i class="fas fa-spinner fa-spin"></i>
                 </span>
-                Create Account
+                <i class="fas fa-user-plus me-2"></i>Create Account
             </button>
         </form>
 
         <div class="auth-links">
-            <p>Already have an account? <a href="login.html">Sign in here</a></p>
+            <p class="mb-0">Already have an account? <a href="login.html">Sign in here</a></p>
         </div>
     </div>
 
     <!-- Toast Container -->
-    <div class="toast-container position-fixed top-0 end-0 p-3">
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1055;">
         <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
             <div class="toast-header">
-                <i class="fas fa-info-circle me-2"></i>
-                <strong class="me-auto">Notification</strong>
+                <i class="fas fa-info-circle me-2 text-primary"></i>
+                <strong class="me-auto">ThreadedTreasure</strong>
                 <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
             </div>
             <div class="toast-body" id="toastMessage"></div>
@@ -288,7 +487,7 @@
     
     <script>
         $(document).ready(function() {
-            // Password visibility toggle
+            // Password visibility toggles
             $('#togglePassword').click(function() {
                 const passwordField = $('#password');
                 const icon = $(this).find('i');
@@ -321,25 +520,31 @@
                 const strength = checkPasswordStrength(password);
                 const strengthDiv = $('#passwordStrength');
                 
-                strengthDiv.removeClass('strength-weak strength-medium strength-strong');
-                
                 if (password.length > 0) {
+                    strengthDiv.show();
+                    strengthDiv.removeClass('strength-weak strength-medium strength-strong');
+                    
                     if (strength.score < 3) {
-                        strengthDiv.addClass('strength-weak').text('Weak password');
+                        strengthDiv.addClass('strength-weak');
+                        strengthDiv.find('.strength-text').text('Weak');
                     } else if (strength.score < 5) {
-                        strengthDiv.addClass('strength-medium').text('Medium password');
+                        strengthDiv.addClass('strength-medium');
+                        strengthDiv.find('.strength-text').text('Medium');
                     } else {
-                        strengthDiv.addClass('strength-strong').text('Strong password');
+                        strengthDiv.addClass('strength-strong');
+                        strengthDiv.find('.strength-text').text('Strong');
                     }
                 } else {
-                    strengthDiv.text('');
+                    strengthDiv.hide();
                 }
+                
+                validatePassword($(this));
             });
 
-            // Email validation
+            // Email validation with availability check
             $('#email').on('blur', function() {
                 const email = $(this).val();
-                if (email) {
+                if (email && validateEmail($(this))) {
                     checkEmailAvailability(email);
                 }
             });
@@ -347,36 +552,56 @@
             // Real-time validation
             $('#fullName').on('input', function() {
                 validateFullName($(this));
+                updateProgress();
             });
 
             $('#email').on('input', function() {
                 validateEmail($(this));
+                updateProgress();
             });
 
             $('#phone').on('input', function() {
                 validatePhone($(this));
-            });
-
-            $('#password').on('input', function() {
-                validatePassword($(this));
-                if ($('#confirmPassword').val()) {
-                    validateConfirmPassword($('#confirmPassword'));
-                }
+                updateProgress();
             });
 
             $('#confirmPassword').on('input', function() {
                 validateConfirmPassword($(this));
+                updateProgress();
             });
 
             // Form submission
             $('#registerForm').on('submit', function(e) {
                 e.preventDefault();
-                
                 if (validateForm()) {
                     registerUser();
                 }
             });
+
+            // Initialize progress
+            updateProgress();
         });
+
+        function updateProgress() {
+            const fields = ['#fullName', '#email', '#password', '#confirmPassword'];
+            let validFields = 0;
+            
+            fields.forEach(field => {
+                if ($(field).hasClass('is-valid')) {
+                    validFields++;
+                }
+            });
+            
+            const progress = (validFields / fields.length) * 100;
+            $('.progress-bar').css('width', progress + '%');
+            
+            // Update step indicators
+            $('.step').removeClass('active');
+            const activeSteps = Math.ceil((validFields / fields.length) * 3);
+            for (let i = 0; i < activeSteps; i++) {
+                $('.step').eq(i).addClass('active');
+            }
+        }
 
         function validateForm() {
             let isValid = true;
@@ -539,7 +764,6 @@
                     }
                 },
                 error: function() {
-                    // Don't show error for email check failure - just don't show validation
                     showFieldSuccess($('#email'));
                 }
             });
@@ -549,7 +773,6 @@
             const registerBtn = $('#registerBtn');
             const spinner = registerBtn.find('.loading-spinner');
             
-            // Show loading state
             registerBtn.prop('disabled', true);
             spinner.show();
             
@@ -560,7 +783,7 @@
                 address: $('#address').val().trim(),
                 password: $('#password').val(),
                 newsletter: $('#newsletter').is(':checked'),
-                role: 'user' // Always send role as "user"
+                role: 'user'
             };
             
             $.ajax({
@@ -570,17 +793,14 @@
                 data: JSON.stringify(formData),
                 success: function(response) {
                     if (response.success) {
-                        showToast('Registration successful! Welcome to ThreadedTreasure!', 'success');
+                        showToast('🎉 Registration successful! Redirecting to login...', 'success');
                         
-                        // Store token for immediate login
-                        if (response.data && response.data.token) {
-                            localStorage.setItem('userToken', response.data.token);
-                            localStorage.setItem('userData', JSON.stringify(response.data.user));
-                        }
+                        // Store email for auto-fill on login page
+                        localStorage.setItem('registeredEmail', formData.email);
                         
-                        // Redirect to shop page after 2 seconds
+                        // Do NOT auto-login - redirect to login page
                         setTimeout(function() {
-                            window.location.href = 'shop.html';
+                            window.location.href = '/users/login.html';
                         }, 2000);
                     } else {
                         showToast(response.message || 'Registration failed. Please try again.', 'error');
@@ -607,7 +827,6 @@
             
             toastBody.text(message);
             
-            // Update toast style based on type
             toastEl.removeClass('bg-danger bg-success bg-warning bg-primary text-white');
             
             if (type === 'error') {
@@ -626,6 +845,6 @@
     </script>
     
     <div data-component="../components/footer.html"></div>
-<script src="../js/componentLoader.js"></script>
+    <script src="../js/componentLoader.js"></script>
 </body>
 </html>

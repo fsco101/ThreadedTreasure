@@ -130,7 +130,7 @@ class UsersManager {
                             
                             const initial = row.name ? row.name.charAt(0).toUpperCase() : 'U';
                             if (data) {
-                                const imgSrc = data.startsWith('/') ? data : `/uploads/users/${data}`;
+                                const imgSrc = data.startsWith('/') ? data : `/uploads/${data}`;
                                 return `
                                     <div class="user-avatar-container">
                                         <div class="avatar-placeholder">

@@ -88,27 +88,6 @@ class CategoriesManager {
                     render: (data, type, row) => `<input type="checkbox" value="${row.id}">`
                 },
                 { data: 'id' },
-                { 
-                    data: 'image',
-                    orderable: false,
-                    searchable: false,
-                    width: '80px',
-                    render: (data) => {
-                        if (data) {
-                            const imgSrc = data.startsWith('/') ? data : `/uploads/categories/${data}`;
-                            return `<div class="category-image-container">
-                                        <i class="fas fa-image image-placeholder"></i>
-                                        <img src="${imgSrc}" 
-                                             alt="Category" 
-                                             onload="this.classList.add('loaded'); this.previousElementSibling.style.display='none';"
-                                             onerror="this.style.display='none'; this.previousElementSibling.style.display='flex';">
-                                    </div>`;
-                        }
-                        return `<div class="category-image-container">
-                                    <i class="fas fa-image image-placeholder"></i>
-                                </div>`;
-                    }
-                },
                 { data: 'name' },
                 { 
                     data: 'description',
@@ -116,11 +95,6 @@ class CategoriesManager {
                         if (!data) return '-';
                         return data.length > 50 ? data.substring(0, 50) + '...' : data;
                     }
-                },
-                { 
-                    data: 'products_count', 
-                    defaultContent: '0',
-                    render: (data) => data || '0'
                 },
                 { 
                     data: 'created_at',
@@ -150,12 +124,12 @@ class CategoriesManager {
             stateSave: false,
             columnDefs: [
                 {
-                    targets: 2, // Image column
-                    width: '80px',
+                    targets: 0, // Checkbox column
+                    width: '60px',
                     className: 'text-center align-middle'
                 },
                 {
-                    targets: [0, 7], // Checkbox and actions columns
+                    targets: -1, // Actions column (last column)
                     width: '60px',
                     className: 'text-center align-middle'
                 }
@@ -179,13 +153,7 @@ class CategoriesManager {
             ],
             order: [[1, 'desc']],
             drawCallback: function() {
-                // Ensure all images are properly handled after table draw
-                $('.category-image-container img').each(function() {
-                    if (this.complete && this.naturalHeight !== 0) {
-                        $(this).addClass('loaded');
-                        $(this).siblings('.image-placeholder').hide();
-                    }
-                });
+                // No image handling needed
             },
             language: {
                 search: "_INPUT_",
@@ -370,18 +338,6 @@ class CategoriesManager {
                         <small class="form-text text-muted">Provide a description to help customers understand this category</small>
                     </div>
                 </div>
-                <div class="col-12">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold text-primary">
-                            <i class="fas fa-image me-2"></i>Category Image
-                        </label>
-                        <input type="file" 
-                               class="form-control" 
-                               name="category_image" 
-                               accept=".jpg,.jpeg,.png,.gif,.webp">
-                        <small class="form-text text-muted">Upload an image to represent this category (optional)</small>
-                    </div>
-                </div>
             </div>
         `;
         
@@ -484,15 +440,6 @@ class CategoriesManager {
                 <div class="col-12">
                     <h6><strong>Description:</strong></h6>
                     <p>${category.description}</p>
-                </div>
-                ` : ''}
-                ${category.image ? `
-                <div class="col-12 text-center">
-                    <h6><strong>Category Image:</strong></h6>
-                    <img src="${category.image.startsWith('/') ? category.image : '/uploads/categories/' + category.image}" 
-                         alt="${category.name}" 
-                         class="img-fluid" 
-                         style="max-height: 200px; border-radius: 8px;">
                 </div>
                 ` : ''}
             </div>
