@@ -15,6 +15,7 @@ const categoryRoutes = require('./routes/categoryRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const orderDetailsRoutes = require('./routes/orderDetailsRoutes');
+const reviewsRouter = require('./routes/reviewRoutes');
 
 // Import middleware
 const { handleUploadError } = require('./middleware/upload');
@@ -48,7 +49,7 @@ app.use(`${API_VERSION}/users`, userRoutes);
 app.use(`${API_VERSION}/products`, productRoutes);
 app.use(`${API_VERSION}/categories`, categoryRoutes);
 app.use('/api/orders', require('./routes/orderRoutes'));
-app.use(`${API_VERSION}/reviews`, require('./routes/reviewRoutes'));
+app.use(`${API_VERSION}/reviews`, reviewsRouter);
 app.use(`${API_VERSION}/order-details`, orderDetailsRoutes);
 app.use(`${API_VERSION}/inventory`, require('./routes/inventoryRoutes'));
 app.use(`${API_VERSION}/upload`, uploadRoutes);

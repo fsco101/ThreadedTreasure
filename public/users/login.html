@@ -26,34 +26,38 @@
         * {
             box-sizing: border-box;
         }
-        .main-footer {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 10;
-    margin-top: 0;
+
+
+    body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        background: var(--primary-gradient);
+        min-height: 100vh;
+        /* Remove these lines: */
+        /* display: flex;
+        align-items: center;
+        justify-content: center; */
+        padding: 2rem 1rem 0 1rem;
+        position: relative;
+        overflow-x: hidden;
+        /* padding-bottom: 200px; */
+    }
+
+
+body, html {
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--primary-gradient);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 2rem 1rem;
-            position: relative;
-            overflow-x: hidden;
-            padding-bottom: 200px;
-        }
-        .main-footer {
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    border-top: 1px solid rgba(255, 255, 255, 0.2);
-    margin-top: 3rem;
-    color: white;
-}
+    .page-content {
+        min-height: calc(100vh - 120px); /* Adjust 120px to your footer's height */
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        padding-top: 2rem;
+    }
         body::before {
             content: '';
             position: absolute;
@@ -76,14 +80,23 @@
             max-width: 480px;
             position: relative;
             transition: all 0.3s ease;
-             margin: 0 auto;
+            margin: 0 auto;
+            margin-top: 2rem;
         }
 
         .login-container:hover {
             box-shadow: var(--shadow-hover);
             transform: translateY(-5px);
         }
-
+                .main-footer {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 2rem 0 1rem 0;
+            text-align: center;
+            margin-top: 4rem;
+            width: 100%;
+            /* No position or z-index */
+        }
         .login-header {
             text-align: center;
             margin-bottom: 2.5rem;

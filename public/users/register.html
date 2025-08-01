@@ -28,12 +28,12 @@
         }
 
         .main-footer {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 10;
-    margin-top: 0;
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    color: white;
+    padding: 2rem 0 1rem 0;
+    text-align: center;
+    margin-top: 4rem;
+    width: 100%;
 }
 
         body {
@@ -58,7 +58,16 @@
             pointer-events: none;
         }
         
+body, html {
+    min-height: 50vh;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
 
+.page-content {
+    min-height: calc(100vh - 120px); /* Adjust 120px to your footer's height */
+}
         .register-container {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(20px);
