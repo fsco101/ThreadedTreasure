@@ -16,11 +16,11 @@
                 <li class="nav-admin-dropdown" style="display:none; position:relative;">
                     <a href="#" id="adminMenuToggle">Admin <i class="fas fa-caret-down"></i></a>
                     <ul class="admin-dropdown-menu dropdown-menu">
-                        <li><a href="/admin-dashboard.html">Dashboard</a></li>
-                        <li><a href="/categories-manager.html">Categories</a></li>
-                        <li><a href="/products-manager-new.html">Products</a></li>
-                        <li><a href="/orders-manager.html">Orders</a></li>
-                        <li><a href="/users-manager.html">Users</a></li>
+                        <li><a href="/admin/admin-dashboard.html">Dashboard</a></li>
+                        <li><a href="/admin/categories-manager.html">Categories</a></li>
+                        <li><a href="/admin/products-manager-new.html">Products</a></li>
+                        <li><a href="/admin/orders-manager.html">Orders</a></li>
+                        <li><a href="/admin/users-manager.html">Users</a></li>
                     </ul>
                 </li>
                 <li class="nav-logout"><a href="/users/logout.html">Logout</a></li>
@@ -44,105 +44,6 @@
         </div>
     </div>
 </header>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const mobileToggle = document.querySelector('.mobile-menu-toggle');
-    const mainNav = document.querySelector('.main-nav');
-    if (mobileToggle && mainNav) {
-        mobileToggle.addEventListener('click', function () {
-            mainNav.classList.toggle('active');
-        });
-    }
-
-    // Fetch user data
-    let userData = {};
-    try {
-        userData = JSON.parse(localStorage.getItem('userData') || '{}');
-    } catch {
-        userData = {};
-    }
-
-    const isActive = userData && userData.is_active === 1;
-    const role = userData && typeof userData.role === 'string' ? userData.role.trim().toLowerCase() : '';
-
-    // Role-based navigation
-    const navLogin = document.querySelector('.nav-login');
-    const navLogout = document.querySelector('.nav-logout');
-    const navProfile = document.querySelector('.nav-profile');
-    const navMyOrders = document.querySelector('.nav-my-orders');
-    const profileBtn = document.getElementById('profileBtn');
-    const userProfilePhoto = document.getElementById('userProfilePhoto');
-
-    if (isActive) {
-        if (navLogin) navLogin.style.display = 'none';
-        if (navLogout) navLogout.style.display = '';
-        if (navProfile) navProfile.style.display = '';
-        if (navMyOrders) navMyOrders.style.display = '';
-        if (profileBtn) {
-            profileBtn.style.display = 'inline-flex';
-            if (userData.photo) {
-                userProfilePhoto.src = userData.photo.startsWith('/')
-                    ? userData.photo
-                    : '/uploads/users/' + userData.photo;
-            }
-        }
-    } else {
-        if (navLogin) navLogin.style.display = '';
-        if (navLogout) navLogout.style.display = 'none';
-        if (navProfile) navProfile.style.display = 'none';
-        if (navMyOrders) navMyOrders.style.display = 'none';
-        if (profileBtn) profileBtn.style.display = 'none';
-    }
-
-    // Admin menu
-    const adminDropdown = document.querySelector('.nav-admin-dropdown');
-    if (adminDropdown) {
-        adminDropdown.style.display = (isActive && role === 'admin') ? '' : 'none';
-
-        const adminMenuToggle = document.getElementById('adminMenuToggle');
-        const adminMenu = adminDropdown.querySelector('.admin-dropdown-menu');
-        if (adminMenuToggle && adminMenu) {
-            adminMenuToggle.addEventListener('click', function (e) {
-                e.preventDefault();
-                const isVisible = adminMenu.classList.contains('show');
-                adminMenu.style.display = isVisible ? 'none' : 'block';
-                adminMenu.classList.toggle('show');
-            });
-
-            document.addEventListener('click', function (e) {
-                if (!adminDropdown.contains(e.target) && adminMenu.classList.contains('show')) {
-                    adminMenu.style.display = 'none';
-                    adminMenu.classList.remove('show');
-                }
-            });
-        }
-    }
-
-    // Cart logic
-    function updateCartCount() {
-        const cartCountEl = document.getElementById('cartCount');
-        const cartNotificationEl = document.getElementById('cartNotification');
-        let cart = [];
-        try {
-            cart = JSON.parse(localStorage.getItem('cart') || '[]');
-        } catch {
-            cart = [];
-        }
-        const count = cart.length;
-        if (cartCountEl) {
-            cartCountEl.textContent = count;
-            cartCountEl.style.display = count > 0 ? 'inline-block' : 'none';
-        }
-        if (cartNotificationEl) {
-            cartNotificationEl.style.display = count > 0 ? 'inline-block' : 'none';
-        }
-    }
-
-    updateCartCount();
-    window.addEventListener('storage', updateCartCount);
-});
-</script>
 
 
 <style>

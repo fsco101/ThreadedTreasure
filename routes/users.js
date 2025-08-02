@@ -6,6 +6,19 @@ const jwt = require('jsonwebtoken');
 const { promisePool } = require('../config/database');
 require('dotenv').config();
 
+// Create database connection (for backward compatibility)
+const db = {
+    query: (query, params, callback) => {
+        if (typeof params === 'function') {
+            callback = params;
+            params = [];
+        }
+        promisePool.execute(query, params)
+            .then(([rows, fields]) => callback(null, rows))
+            .catch(err => callback(err));
+    }
+};
+
 // JWT Secret from environment variables
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -155,7 +168,11 @@ router.post('/login', (req, res) => {
                     id: user.id,
                     name: user.name,
                     email: user.email,
-                    role: user.role
+                    phone: user.phone,
+                    address: user.address,
+                    role: user.role,
+                    is_active: parseInt(user.is_active) || 0,
+                    profile_photo: user.profile_photo
                 }
             });
         });
@@ -236,11 +253,15 @@ router.post('/admin-login', (req, res) => {
                 success: true,
                 message: 'Admin login successful',
                 token: token,
-                admin: {
+                user: {
                     id: admin.id,
                     name: admin.name,
                     email: admin.email,
-                    role: admin.role
+                    phone: admin.phone,
+                    address: admin.address,
+                    role: admin.role,
+                    is_active: parseInt(admin.is_active) || 0,
+                    profile_photo: admin.profile_photo
                 }
             });
         });

@@ -3,6 +3,7 @@ const router = express.Router();
 const { promisePool } = require('../config/database');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const { authenticateToken } = require('../middleware/auth');
 
 // Registration route
 router.post('/register', async (req, res) => {
@@ -67,7 +68,8 @@ router.post('/register', async (req, res) => {
       email,
       phone,
       address,
-      role: 'customer',
+      role: 'user',
+      is_active: 1,
       newsletter_subscribed: newsletter ? 1 : 0
     };
 
@@ -110,7 +112,7 @@ router.post('/login', async (req, res) => {
     
     // Find user by email (include password for comparison)
     const [rows] = await promisePool.execute(
-      'SELECT id, name, email, role, is_active, password FROM users WHERE email = ?',
+      'SELECT id, name, email, phone, address, role, is_active, profile_photo, password FROM users WHERE email = ?',
       [email]
     );
     
@@ -154,8 +156,11 @@ router.post('/login', async (req, res) => {
     // Update last login time and save token in remember_token
     await promisePool.execute('UPDATE users SET last_login = NOW(), remember_token = ? WHERE id = ?', [token, user.id]);
 
-    // Remove password from response
+    // Remove password from response and ensure proper data types
     delete user.password;
+    
+    // Ensure is_active is an integer (1 or 0)
+    user.is_active = parseInt(user.is_active) || 0;
 
     res.json({
       success: true,
@@ -242,7 +247,7 @@ router.post('/logout', async (req, res) => {
   }
 });
 
-// Get current user
+// Get current user with full profile data
 router.get('/me', async (req, res) => {
   try {
     const authHeader = req.headers['authorization'];
@@ -256,33 +261,54 @@ router.get('/me', async (req, res) => {
     }
     
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    // Fetch user and remember_token
-    const [rows] = await promisePool.execute('SELECT id, name, email, role, created_at, remember_token FROM users WHERE id = ?', [decoded.id]);
+    
+    // Fetch complete user profile data
+    const [rows] = await promisePool.execute(
+      'SELECT id, name, email, phone, address, role, is_active, profile_photo, created_at, updated_at, remember_token FROM users WHERE id = ?', 
+      [decoded.id]
+    );
+    
     if (rows.length === 0) {
       return res.status(401).json({
         success: false,
         message: 'User not found'
       });
     }
+    
     const user = rows[0];
-    // Check if token matches remember_token
+    
+    // Check if user is active
+    if (!user.is_active) {
+      return res.status(401).json({
+        success: false,
+        message: 'Account is deactivated'
+      });
+    }
+    
+    // Check if token matches remember_token (optional validation)
     if (!user.remember_token || user.remember_token !== token) {
       return res.status(401).json({
         success: false,
         message: 'Token does not match stored session'
       });
     }
-    // Remove remember_token from response
+    
+    // Remove sensitive data from response
     delete user.remember_token;
+    
+    // Ensure proper data types
+    user.is_active = parseInt(user.is_active) || 0;
+    
     res.json({
       success: true,
       data: user
     });
     
   } catch (error) {
+    console.error('Get user profile error:', error);
     res.status(401).json({
       success: false,
-      message: 'Invalid token'
+      message: 'Invalid or expired token'
     });
   }
 });
