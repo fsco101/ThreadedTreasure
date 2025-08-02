@@ -7,6 +7,9 @@ class HeaderManager {
     constructor() {
         this.userData = {};
         this.isInitialized = false;
+        this.API_BASE_URL = 'http://localhost:3000/api';
+        this.lastCartCount = 0;
+        this.cartWatcherInterval = null;
         this.init();
     }
 
@@ -26,7 +29,7 @@ class HeaderManager {
     /**
      * Setup header functionality after component is loaded
      */
-    setupHeader() {
+    async setupHeader() {
         // Check if header elements are available
         const header = document.querySelector('.main-header');
         if (!header) {
@@ -36,7 +39,7 @@ class HeaderManager {
         }
 
         this.setupMobileMenu();
-        this.loadUserData();
+        await this.loadUserData();
         this.setupNavigation();
         this.setupAdminMenu();
         this.setupCartFunctionality();
@@ -60,15 +63,60 @@ class HeaderManager {
     }
 
     /**
-     * Load user data from localStorage
+     * Load user data from localStorage and API
      */
-    loadUserData() {
+    async loadUserData() {
         try {
-            this.userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            // First try to get from localStorage (for quick initial load)
+            const storedUserData = localStorage.getItem('userData');
+            const token = localStorage.getItem('userToken');
+            
+            if (storedUserData) {
+                this.userData = JSON.parse(storedUserData);
+            }
+
+            // If we have a token, fetch fresh data from API
+            if (token) {
+                try {
+                    const response = await fetch(`${this.API_BASE_URL}/users/profile`, {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.success && result.data) {
+                            this.userData = result.data;
+                            // Update localStorage with fresh data
+                            localStorage.setItem('userData', JSON.stringify(result.data));
+                            console.log('✅ User data refreshed from API:', this.userData.name);
+                        }
+                    } else if (response.status === 401) {
+                        // Token is invalid, clear auth data
+                        this.clearAuthData();
+                        console.log('🚫 Invalid token, cleared auth data');
+                    }
+                } catch (apiError) {
+                    console.warn('⚠️ Failed to fetch user data from API:', apiError);
+                    // Continue with stored data if API fails
+                }
+            }
         } catch (error) {
-            console.warn('⚠️ Failed to parse user data from localStorage:', error);
+            console.warn('⚠️ Failed to load user data:', error);
             this.userData = {};
         }
+    }
+
+    /**
+     * Clear authentication data
+     */
+    clearAuthData() {
+        this.userData = {};
+        localStorage.removeItem('userData');
+        localStorage.removeItem('userToken');
     }
 
     /**
@@ -112,13 +160,39 @@ class HeaderManager {
     }
 
     /**
-     * Update profile photo
+     * Update profile photo with proper path handling
      */
     updateProfilePhoto(photoElement) {
-        if (photoElement && this.userData.photo) {
-            photoElement.src = this.userData.photo.startsWith('/')
-                ? this.userData.photo
-                : '/uploads/users/' + this.userData.photo;
+        if (photoElement && this.userData.profile_photo) {
+            let photoUrl;
+            
+            // Handle different photo path formats
+            if (this.userData.profile_photo.startsWith('http://') || this.userData.profile_photo.startsWith('https://')) {
+                // Full URL
+                photoUrl = this.userData.profile_photo;
+            } else if (this.userData.profile_photo.startsWith('/')) {
+                // Already has leading slash
+                photoUrl = this.userData.profile_photo;
+            } else {
+                // Profile photos are stored directly in uploads/ directory
+                // Just add the uploads/ prefix
+                photoUrl = '/uploads/' + this.userData.profile_photo;
+            }
+            
+            photoElement.src = photoUrl;
+            photoElement.alt = `${this.userData.name || 'User'}'s profile`;
+            
+            // Add error handling for broken images
+            photoElement.onerror = () => {
+                photoElement.src = '/uploads/users/default-avatar.svg';
+                console.warn('⚠️ Failed to load profile photo, using default');
+            };
+            
+            console.log(`📸 Profile photo updated: ${photoUrl}`);
+        } else if (photoElement) {
+            // Use default avatar
+            photoElement.src = '/uploads/users/default-avatar.svg';
+            photoElement.alt = 'Default profile';
         }
     }
 
@@ -191,47 +265,150 @@ class HeaderManager {
     }
 
     /**
-     * Setup cart functionality
+     * Setup cart functionality with proper integration
      */
     setupCartFunctionality() {
         this.updateCartCount();
         
         // Listen for storage changes (cart updates from other tabs)
-        window.addEventListener('storage', () => {
-            this.updateCartCount();
+        window.addEventListener('storage', (e) => {
+            if (e.key && (e.key.startsWith('cart_user_') || e.key === 'cart')) {
+                this.updateCartCount();
+            }
         });
 
         // Listen for custom cart update events
         window.addEventListener('cartUpdated', () => {
             this.updateCartCount();
         });
+
+        // Listen for item added to cart events
+        window.addEventListener('itemAddedToCart', () => {
+            this.updateCartCount();
+            this.showCartNotification();
+        });
+
+        // Set up MutationObserver to watch for cart changes in localStorage
+        this.setupCartWatcher();
     }
 
     /**
-     * Update cart count display
+     * Setup cart watcher for immediate updates
+     */
+    setupCartWatcher() {
+        // Check for cart changes every 100ms for immediate feedback
+        this.cartWatcherInterval = setInterval(() => {
+            this.updateCartCount();
+        }, 100);
+
+        // Stop watching after 30 seconds to avoid performance issues
+        setTimeout(() => {
+            if (this.cartWatcherInterval) {
+                clearInterval(this.cartWatcherInterval);
+                this.cartWatcherInterval = null;
+            }
+        }, 30000);
+    }
+
+    /**
+     * Get the appropriate cart key for the current user
+     */
+    getCartKey() {
+        if (this.userData && this.userData.id && this.userData.id !== 'guest') {
+            return `cart_user_${this.userData.id}`;
+        }
+        return 'cart'; // Fallback for guest users
+    }
+
+    /**
+     * Update cart count display with proper user-specific cart
      */
     updateCartCount() {
         const cartCountEl = document.getElementById('cartCount');
         const cartNotificationEl = document.getElementById('cartNotification');
         
         let cart = [];
+        let count = 0;
+        
         try {
-            cart = JSON.parse(localStorage.getItem('cart') || '[]');
+            const cartKey = this.getCartKey();
+            const cartData = localStorage.getItem(cartKey);
+            if (cartData) {
+                cart = JSON.parse(cartData);
+                count = Array.isArray(cart) ? cart.length : 0;
+            }
         } catch (error) {
             console.warn('⚠️ Failed to parse cart data:', error);
             cart = [];
+            count = 0;
         }
 
-        const count = cart.length;
-        
+        // Update cart count element
         if (cartCountEl) {
             cartCountEl.textContent = count;
             cartCountEl.style.display = count > 0 ? 'inline-block' : 'none';
+            
+            // Add pulse animation if count increased
+            if (count > this.lastCartCount) {
+                cartCountEl.style.animation = 'pulse 0.6s ease-in-out';
+                setTimeout(() => {
+                    cartCountEl.style.animation = '';
+                }, 600);
+            }
         }
         
+        // Update cart notification element
         if (cartNotificationEl) {
             cartNotificationEl.style.display = count > 0 ? 'inline-block' : 'none';
         }
+
+        // Store last count for comparison
+        this.lastCartCount = count;
+
+        console.log(`🛒 Cart updated: ${count} items (key: ${this.getCartKey()})`);
+        
+        return count;
+    }
+
+    /**
+     * Show cart notification animation
+     */
+    showCartNotification() {
+        const cartBtn = document.getElementById('cartBtn');
+        const cartNotification = document.getElementById('cartNotification');
+        const cartCount = document.getElementById('cartCount');
+        
+        if (cartBtn) {
+            // Add pulse animation to the entire cart button
+            cartBtn.style.animation = 'pulse 0.6s ease-in-out';
+            cartBtn.style.transform = 'scale(1.1)';
+            
+            // Reset animation after completion
+            setTimeout(() => {
+                cartBtn.style.animation = '';
+                cartBtn.style.transform = '';
+            }, 600);
+        }
+        
+        if (cartNotification) {
+            cartNotification.style.animation = 'pulse 0.6s ease-in-out';
+            
+            setTimeout(() => {
+                cartNotification.style.animation = '';
+            }, 600);
+        }
+
+        if (cartCount) {
+            cartCount.style.animation = 'pulse 0.6s ease-in-out';
+            cartCount.style.backgroundColor = '#28a745'; // Green for added
+            
+            setTimeout(() => {
+                cartCount.style.animation = '';
+                cartCount.style.backgroundColor = '#e53e3e'; // Back to red
+            }, 600);
+        }
+
+        console.log('🎉 Cart notification shown');
     }
 
     /**
@@ -255,8 +432,8 @@ class HeaderManager {
     /**
      * Refresh header data (useful for re-authentication)
      */
-    refresh() {
-        this.loadUserData();
+    async refresh() {
+        await this.loadUserData();
         this.setupNavigation();
         this.setupAdminMenu();
         this.updateCartCount();
@@ -266,20 +443,51 @@ class HeaderManager {
     /**
      * Update user data and refresh header
      */
-    updateUserData(newUserData) {
+    async updateUserData(newUserData) {
         this.userData = newUserData;
         localStorage.setItem('userData', JSON.stringify(newUserData));
-        this.refresh();
+        await this.refresh();
     }
 
     /**
-     * Clear user data and refresh header
+     * Clear user data and refresh header (logout)
      */
-    logout() {
-        this.userData = {};
-        localStorage.removeItem('userData');
-        this.refresh();
+    async logout() {
+        this.clearAuthData();
+        this.cleanupIntervals();
+        await this.refresh();
         console.log('👋 User logged out, header updated');
+    }
+
+    /**
+     * Cleanup intervals and watchers
+     */
+    cleanupIntervals() {
+        if (this.cartWatcherInterval) {
+            clearInterval(this.cartWatcherInterval);
+            this.cartWatcherInterval = null;
+        }
+    }
+
+    /**
+     * Get current user data
+     */
+    getCurrentUser() {
+        return this.userData;
+    }
+
+    /**
+     * Check if user is authenticated
+     */
+    isAuthenticated() {
+        return this.userData && this.userData.id && this.userData.is_active === 1;
+    }
+
+    /**
+     * Check if user is admin
+     */
+    isAdmin() {
+        return this.isAuthenticated() && this.userData.role === 'admin';
     }
 }
 
@@ -312,4 +520,80 @@ window.triggerCartUpdate = function() {
         headerManager.updateCartCount();
     }
     window.dispatchEvent(new CustomEvent('cartUpdated'));
+};
+
+// Helper function to notify item added to cart
+window.notifyItemAddedToCart = function() {
+    if (headerManager) {
+        // Force immediate update
+        setTimeout(() => {
+            headerManager.updateCartCount();
+            headerManager.showCartNotification();
+        }, 10);
+    }
+    window.dispatchEvent(new CustomEvent('itemAddedToCart'));
+};
+
+// Helper function to add item to cart and update immediately
+window.addToCartAndNotify = function(item) {
+    try {
+        // Get current user from header manager
+        const user = headerManager ? headerManager.getCurrentUser() : null;
+        const cartKey = user && user.id ? `cart_user_${user.id}` : 'cart';
+        
+        // Get existing cart
+        let cart = [];
+        try {
+            const cartData = localStorage.getItem(cartKey);
+            cart = cartData ? JSON.parse(cartData) : [];
+        } catch (e) {
+            cart = [];
+        }
+        
+        // Add item to cart
+        cart.push(item);
+        
+        // Save cart
+        localStorage.setItem(cartKey, JSON.stringify(cart));
+        
+        // Trigger immediate notification
+        window.notifyItemAddedToCart();
+        
+        console.log('✅ Item added to cart:', item);
+        return true;
+    } catch (error) {
+        console.error('❌ Failed to add item to cart:', error);
+        return false;
+    }
+};
+
+// Helper function to get current user from header
+window.getCurrentUser = function() {
+    if (headerManager) {
+        return headerManager.getCurrentUser();
+    }
+    return null;
+};
+
+// Helper function to check authentication status
+window.isUserAuthenticated = function() {
+    if (headerManager) {
+        return headerManager.isAuthenticated();
+    }
+    return false;
+};
+
+// Helper function to refresh header after login/logout
+window.refreshHeader = async function() {
+    if (headerManager) {
+        await headerManager.refresh();
+    }
+};
+
+// Helper function to force cart count update
+window.forceCartUpdate = function() {
+    if (headerManager) {
+        headerManager.updateCartCount();
+        console.log('🔄 Forced cart update');
+    }
 };
