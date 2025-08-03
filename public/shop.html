@@ -439,17 +439,27 @@
         .product-rating {
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 8px;
             font-size: 14px;
+            margin-bottom: 8px;
         }
 
         .product-rating .stars {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            color: #ffc107;
+        }
+
+        .product-rating .stars i {
+            font-size: 14px;
             color: #ffc107;
         }
 
         .product-rating .rating-count {
             color: #6c757d;
             font-size: 12px;
+            white-space: nowrap;
         }
 
         .product-stock {
@@ -933,7 +943,35 @@
             background-clip: text;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            margin-bottom: 1rem;
+        }
+
+        .modal-product-rating {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
             margin-bottom: 1.5rem;
+            padding: 0.75rem;
+            background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+            border-radius: 12px;
+            border: 1px solid rgba(102, 126, 234, 0.1);
+        }
+
+        .modal-product-rating .stars {
+            display: flex;
+            gap: 0.25rem;
+        }
+
+        .modal-product-rating .stars i {
+            font-size: 1.1rem;
+            color: #ffc107;
+            transition: all 0.2s ease;
+        }
+
+        .modal-product-rating .rating-text {
+            font-size: 0.95rem;
+            color: #6c757d;
+            font-weight: 500;
         }
 
         .modal-product-description {
@@ -2130,6 +2168,16 @@
                                 <div class="modal-product-price" id="modal-product-price">
                                     $0.00
                                 </div>
+                                <div class="modal-product-rating" id="modal-product-rating">
+                                    <div class="stars">
+                                        <i class="far fa-star"></i>
+                                        <i class="far fa-star"></i>
+                                        <i class="far fa-star"></i>
+                                        <i class="far fa-star"></i>
+                                        <i class="far fa-star"></i>
+                                    </div>
+                                    <span class="rating-text">No reviews yet</span>
+                                </div>
                                 <div class="modal-product-description" id="modal-product-description">
                                     Product description will appear here.
                                 </div>
@@ -2306,6 +2354,10 @@
                 
                 if (data.success) {
                     allProducts = data.data || [];
+                    
+                    // Fetch review statistics for all products
+                    await loadReviewStatistics();
+                    
                     filteredProducts = [...allProducts];
                     totalProducts = filteredProducts.length;
                     currentPage = 1;
@@ -2326,6 +2378,96 @@
                     </div>
                 `;
             }
+        }
+
+        // Function to load review statistics for all products
+        async function loadReviewStatistics() {
+            try {
+                console.log('Loading review statistics for products...');
+                
+                // Fetch review stats for each product
+                const reviewPromises = allProducts.map(async (product) => {
+                    try {
+                        const response = await fetch(`${API_BASE_URL}/reviews/products/${product.id}`);
+                        const data = await response.json();
+                        
+                        if (data.success && data.data.stats) {
+                            product.reviewStats = {
+                                averageRating: parseFloat(data.data.stats.average_rating) || 0,
+                                totalReviews: parseInt(data.data.stats.total_reviews) || 0,
+                                fiveStars: parseInt(data.data.stats.five_stars) || 0,
+                                fourStars: parseInt(data.data.stats.four_stars) || 0,
+                                threeStars: parseInt(data.data.stats.three_stars) || 0,
+                                twoStars: parseInt(data.data.stats.two_stars) || 0,
+                                oneStar: parseInt(data.data.stats.one_star) || 0
+                            };
+                        } else {
+                            // No reviews yet
+                            product.reviewStats = {
+                                averageRating: 0,
+                                totalReviews: 0,
+                                fiveStars: 0,
+                                fourStars: 0,
+                                threeStars: 0,
+                                twoStars: 0,
+                                oneStar: 0
+                            };
+                        }
+                    } catch (error) {
+                        console.warn(`Failed to load reviews for product ${product.id}:`, error);
+                        // Fallback to empty stats
+                        product.reviewStats = {
+                            averageRating: 0,
+                            totalReviews: 0,
+                            fiveStars: 0,
+                            fourStars: 0,
+                            threeStars: 0,
+                            twoStars: 0,
+                            oneStar: 0
+                        };
+                    }
+                });
+
+                await Promise.all(reviewPromises);
+                console.log('Review statistics loaded successfully');
+            } catch (error) {
+                console.error('Failed to load review statistics:', error);
+            }
+        }
+
+        // Function to generate star rating HTML based on average rating
+        function generateStarRating(averageRating) {
+            const fullStars = Math.floor(averageRating);
+            const hasHalfStar = averageRating % 1 >= 0.5;
+            const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+            
+            let starsHtml = '';
+            
+            // Full stars
+            for (let i = 0; i < fullStars; i++) {
+                starsHtml += '<i class="fas fa-star"></i>';
+            }
+            
+            // Half star
+            if (hasHalfStar) {
+                starsHtml += '<i class="fas fa-star-half-alt"></i>';
+            }
+            
+            // Empty stars
+            for (let i = 0; i < emptyStars; i++) {
+                starsHtml += '<i class="far fa-star"></i>';
+            }
+            
+            return starsHtml;
+        }
+
+        // Function to format rating display text
+        function formatRatingText(averageRating, totalReviews) {
+            if (totalReviews === 0) {
+                return 'No reviews yet';
+            }
+            
+            return `${averageRating.toFixed(1)} (${totalReviews} review${totalReviews > 1 ? 's' : ''})`;
         }
 
         function renderCategoryFilter() {
@@ -2413,13 +2555,9 @@
                                     <div class="product-price">$${parseFloat(product.price).toFixed(2)}</div>
                                     <div class="product-rating">
                                         <div class="stars">
-                                            <i class="fas fa-star"></i>
-                                            <i class="fas fa-star"></i>
-                                            <i class="fas fa-star"></i>
-                                            <i class="fas fa-star"></i>
-                                            <i class="far fa-star"></i>
+                                            ${generateStarRating(product.reviewStats?.averageRating || 0)}
                                         </div>
-                                        <span class="rating-count">(${Math.floor(Math.random() * 50) + 5})</span>
+                                        <span class="rating-count">${formatRatingText(product.reviewStats?.averageRating || 0, product.reviewStats?.totalReviews || 0)}</span>
                                     </div>
                                 </div>
                                 
@@ -2781,6 +2919,20 @@
             document.getElementById('modal-product-category').textContent = product.category_name || 'Uncategorized';
             document.getElementById('modal-product-name').textContent = product.name;
             document.getElementById('modal-product-price').textContent = `$${parseFloat(product.price).toFixed(2)}`;
+            
+            // Update rating display
+            const modalRatingContainer = document.getElementById('modal-product-rating');
+            const starsContainer = modalRatingContainer.querySelector('.stars');
+            const ratingTextElement = modalRatingContainer.querySelector('.rating-text');
+            
+            if (product.reviewStats && product.reviewStats.totalReviews > 0) {
+                starsContainer.innerHTML = generateStarRating(product.reviewStats.averageRating);
+                ratingTextElement.textContent = formatRatingText(product.reviewStats.averageRating, product.reviewStats.totalReviews);
+            } else {
+                starsContainer.innerHTML = generateStarRating(0);
+                ratingTextElement.textContent = 'No reviews yet';
+            }
+            
             document.getElementById('modal-product-description').textContent = product.description || 'No description available.';
 
             // Prepare image URLs (always use /uploads/products/filename)
