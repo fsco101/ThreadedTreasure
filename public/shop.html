@@ -2235,12 +2235,12 @@
 
             console.log('✅ User authenticated, proceeding with cart addition');
 
-            // For demo purposes, we'll use default size/color
-            const size = 'M';
+            // Use default size/color for cart display only - not for inventory tracking
+            const size = 'One Size';
             const color = 'Default';
 
-            // Check inventory before adding to cart
-            const availableStock = await checkProductInventory(productId);
+            // Check inventory based on product ID only (not size/color specific)
+            const availableStock = product.stock_quantity || 0;
             console.log(`📦 Available stock for product ${productId}: ${availableStock}`);
 
             // Get or create user-specific cart
@@ -2256,12 +2256,9 @@
                 console.error('Error loading cart:', error);
             }
 
-            // Check current quantity in cart
-            const existingItem = cart.find(item => 
-                item.id === productId && item.size === size && item.color === color
-            );
-
-            const currentQuantityInCart = existingItem ? existingItem.quantity : 0;
+            // Check current quantity in cart for this product (regardless of size/color)
+            const existingItems = cart.filter(item => item.id === productId);
+            const currentQuantityInCart = existingItems.reduce((total, item) => total + item.quantity, 0);
             const newTotalQuantity = currentQuantityInCart + 1;
 
             if (newTotalQuantity > availableStock) {
@@ -2295,6 +2292,9 @@
                     imageUrl = `products/${firstImage}`;
                 }
             }
+
+            // Find existing item with same product ID (consolidate all variations)
+            const existingItem = cart.find(item => item.id === productId);
 
             // Add item to cart
             if (existingItem) {
@@ -2707,8 +2707,8 @@
 
             const quantity = parseInt(document.getElementById('modal-quantity').value);
             
-            // Check inventory before adding to cart
-            const availableStock = await checkProductInventory(currentProduct.id);
+            // Check inventory based on product ID only (not size/color specific)
+            const availableStock = currentProduct.stock_quantity || 0;
             console.log(`📦 Available stock for product ${currentProduct.id}: ${availableStock}`);
 
             // Get or create user-specific cart
@@ -2723,12 +2723,9 @@
                 console.error('Error loading cart:', error);
             }
 
-            // Check current quantity in cart
-            const existingItem = cart.find(item => 
-                item.id === currentProduct.id && item.size === (selectedSize || 'M') && item.color === (selectedColor || 'Default')
-            );
-
-            const currentQuantityInCart = existingItem ? existingItem.quantity : 0;
+            // Check current quantity in cart for this product (regardless of size/color)
+            const existingItems = cart.filter(item => item.id === currentProduct.id);
+            const currentQuantityInCart = existingItems.reduce((total, item) => total + item.quantity, 0);
             const newTotalQuantity = currentQuantityInCart + quantity;
 
             if (newTotalQuantity > availableStock) {
@@ -2768,16 +2765,20 @@
                 }
             }
 
-            // Check if item already exists in cart with same size/color
+            // Find existing item with same product ID (consolidate all variations)
+            const existingItem = cart.find(item => item.id === currentProduct.id);
+
+            // Check if item already exists in cart
             if (existingItem) {
                 existingItem.quantity += quantity;
+                // Keep the first size/color in cart for display purposes
             } else {
                 cart.push({
                     id: currentProduct.id,
                     name: currentProduct.name,
                     price: parseFloat(currentProduct.price),
                     quantity: quantity,
-                    size: selectedSize || 'M',
+                    size: selectedSize || 'One Size',
                     color: selectedColor || 'Default',
                     image: imageUrl
                 });
@@ -2790,7 +2791,7 @@
                 console.log(`Saved cart from modal for user ${currentUser.id}:`, cart);
                 
                 // Show success message
-                showNotification(`${currentProduct.name} (${selectedSize || 'M'}, ${selectedColor || 'Default'}) added to cart!`, 'success');
+                showNotification(`${currentProduct.name} added to cart!`, 'success');
                 
                 // Update cart count
                 updateCartCount();

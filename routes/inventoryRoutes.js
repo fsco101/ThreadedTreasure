@@ -13,6 +13,12 @@ router.put('/products/:id', authenticateToken, InventoryController.updateInvento
 // Update specific inventory item by inventory ID
 router.put('/items/:id', authenticateToken, InventoryController.updateInventoryItem);
 
+// Bulk update inventory for multiple products
+router.put('/bulk-update', authenticateToken, InventoryController.bulkUpdateInventory);
+
+// Get inventory movement history for a product
+router.get('/products/:id/movements', authenticateToken, InventoryController.getInventoryMovements);
+
 // Get low stock products
 router.get('/low-stock', authenticateToken, InventoryController.getLowStockProducts);
 
