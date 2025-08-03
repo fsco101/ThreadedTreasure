@@ -2279,16 +2279,17 @@
             try {
                 const userData = localStorage.getItem('userData');
                 if (!userData) {
-                    return { id: 'guest', is_active: 0 };
+                    return { id: 'guest', is_active: 0, isGuest: true };
                 }
                 const user = JSON.parse(userData);
                 if (user && user.id && user.is_active === 1) {
+                    user.isGuest = false;
                     return user;
                 } else {
-                    return { id: 'guest', is_active: 0 };
+                    return { id: 'guest', is_active: 0, isGuest: true };
                 }
             } catch (error) {
-                return { id: 'guest', is_active: 0 };
+                return { id: 'guest', is_active: 0, isGuest: true };
             }
         }
 
@@ -2316,6 +2317,16 @@
             // Set up periodic refresh to catch login state changes
             setInterval(refreshUserContext, 2000); // Check every 2 seconds
         });
+
+        // Function to refresh user context periodically
+        function refreshUserContext() {
+            const newUser = getCurrentUser();
+            if (newUser.id !== currentUser.id || newUser.isGuest !== currentUser.isGuest) {
+                currentUser = newUser;
+                console.log('User context updated:', currentUser);
+                updateCartCount(); // Update cart count when user changes
+            }
+        }
 
         function setupEventListeners() {
             // Search functionality
@@ -2571,7 +2582,7 @@
                                 <div class="product-actions">
                                     <button class="add-to-cart" ${product.stock_quantity === 0 ? 'disabled' : ''} onclick="event.stopPropagation(); addToCart(${product.id})">
                                         <i class="fas fa-shopping-cart"></i> 
-                                        ${product.stock_quantity === 0 ? 'Out of Stock' : 'Add to Cart'}
+                                        ${product.stock_quantity === 0 ? 'No Stock' : 'Add to Cart'}
                                     </button>
                                 </div>
                             </div>
@@ -2604,8 +2615,8 @@
         }
 
         function getStockText(quantity) {
-            if (quantity === 0) return 'Out of Stock';
-            if (quantity <= 10) return 'Low Stock';
+            if (quantity === 0) return 'No Stock';
+            if (quantity <= 5) return 'Low Stock';
             return 'In Stock';
         }
 
@@ -2639,6 +2650,13 @@
             const product = allProducts.find(p => p.id === productId);
             if (!product) {
                 console.log('❌ Product not found');
+                return;
+            }
+
+            // Check if product has stock
+            if (product.stock_quantity === 0) {
+                console.log('❌ Product has no stock');
+                showNotification('This item has no stock available', 'warning');
                 return;
             }
 
@@ -2686,7 +2704,7 @@
 
             if (newTotalQuantity > availableStock) {
                 if (availableStock === 0) {
-                    showNotification('This item is out of stock', 'warning');
+                    showNotification('This item has no stock available', 'warning');
                 } else {
                     showNotification(`Cannot add more. Only ${availableStock} units available and ${currentQuantityInCart} already in cart.`, 'warning');
                 }
@@ -3072,14 +3090,25 @@
             const addToCartBtn = document.getElementById('modal-add-to-cart');
             if (product.stock_quantity === 0) {
                 addToCartBtn.disabled = true;
-                addToCartBtn.innerHTML = '<i class="fas fa-times"></i> Out of Stock';
+                addToCartBtn.innerHTML = '<i class="fas fa-times"></i> No Stock';
             } else {
                 addToCartBtn.disabled = false;
                 addToCartBtn.innerHTML = '<i class="fas fa-shopping-cart"></i> Add to Cart';
             }
 
-            // Reset quantity
-            document.getElementById('modal-quantity').value = 1;
+            // Reset quantity based on stock availability
+            const quantityInput = document.getElementById('modal-quantity');
+            const quantityButtons = document.querySelectorAll('.quantity-btn');
+            
+            if (product.stock_quantity === 0) {
+                quantityInput.value = 0;
+                quantityInput.disabled = true;
+                quantityButtons.forEach(btn => btn.disabled = true);
+            } else {
+                quantityInput.value = 1;
+                quantityInput.disabled = false;
+                quantityButtons.forEach(btn => btn.disabled = false);
+            }
         }
 
         function changeMainImage(imageUrl, altText, thumbnailElement) {
@@ -3120,6 +3149,10 @@
         }
 
         function updateQuantity(change) {
+            if (!currentProduct || currentProduct.stock_quantity === 0) {
+                return; // Prevent any quantity changes when no stock
+            }
+            
             const quantityInput = document.getElementById('modal-quantity');
             let currentQuantity = parseInt(quantityInput.value);
             let newQuantity = currentQuantity + change;
@@ -3134,7 +3167,7 @@
             if (!currentProduct) return;
 
             // Check if user is logged in (not guest)
-            if (!currentUser || currentUser.is_active !== 1) {
+            if (!currentUser || currentUser.isGuest) {
                 showNotification('Please log in to add items to cart', 'warning');
                 // Redirect to login
                 const returnUrl = encodeURIComponent(window.location.pathname);
@@ -3142,10 +3175,16 @@
                 return;
             }
 
+            // Early stock validation
+            const availableStock = currentProduct.stock_quantity || 0;
+            if (availableStock === 0) {
+                showNotification('This item has no stock', 'warning');
+                return;
+            }
+
             const quantity = parseInt(document.getElementById('modal-quantity').value);
             
             // Check inventory based on product ID only (not size/color specific)
-            const availableStock = currentProduct.stock_quantity || 0;
             console.log(`📦 Available stock for product ${currentProduct.id}: ${availableStock}`);
 
             // Get or create user-specific cart
@@ -3167,7 +3206,7 @@
 
             if (newTotalQuantity > availableStock) {
                 if (availableStock === 0) {
-                    showNotification('This item is out of stock', 'warning');
+                    showNotification('This item has no stock', 'warning');
                 } else {
                     const maxCanAdd = Math.max(0, availableStock - currentQuantityInCart);
                     if (maxCanAdd === 0) {
