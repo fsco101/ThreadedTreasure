@@ -62,20 +62,10 @@ class ProfileManager {
             this.checkPasswordStrength(e.target.value);
         });
 
-        // Avatar upload - delegate event to handle dynamic content
+        // Avatar upload - single delegated event listener
         document.addEventListener('change', (e) => {
             if (e.target && e.target.id === 'avatar-upload') {
                 this.handleAvatarUpload(e.target.files[0]);
-            }
-        });
-
-        // Also handle click events for avatar upload button
-        document.addEventListener('click', (e) => {
-            if (e.target && e.target.closest('.avatar-upload')) {
-                const uploadInput = document.getElementById('avatar-upload');
-                if (uploadInput) {
-                    uploadInput.click();
-                }
             }
         });
     }
@@ -165,6 +155,8 @@ class ProfileManager {
 
     updateAvatarDisplay(user) {
         const avatarContainer = document.getElementById('profile-avatar');
+        const avatarImg = document.getElementById('profile-avatar-img');
+        const avatarIcon = document.getElementById('profile-avatar-icon');
         
         // Check for various possible photo field names
         const photoField = user.profile_photo || user.avatar || user.photo || user.profile_picture;
@@ -197,34 +189,25 @@ class ProfileManager {
             console.log('User photo field:', photoField);
             console.log('Constructed avatar URL:', avatarUrl);
             
-            avatarContainer.innerHTML = `
-                <img src="${avatarUrl}" alt="Profile Avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" 
-                     onload="console.log('Avatar image loaded successfully:', this.src);"
-                     onerror="console.error('Failed to load avatar:', this.src); this.style.display='none'; this.parentNode.querySelector('.avatar-icon').style.display='flex';">
-                <i class="fas fa-user avatar-icon" style="display: none; font-size: 3rem; color: white;"></i>
-                <input type="file" id="avatar-upload" accept="image/*" style="display: none;">
-                <div class="avatar-upload" onclick="document.getElementById('avatar-upload').click()">
-                    <i class="fas fa-camera"></i>
-                </div>
-            `;
+            // Show image, hide icon
+            avatarImg.src = avatarUrl;
+            avatarImg.style.display = 'block';
+            avatarIcon.style.display = 'none';
+            
+            // Handle image load/error
+            avatarImg.onload = () => {
+                console.log('Avatar image loaded successfully:', avatarUrl);
+            };
+            avatarImg.onerror = () => {
+                console.error('Failed to load avatar:', avatarUrl);
+                avatarImg.style.display = 'none';
+                avatarIcon.style.display = 'flex';
+            };
         } else {
             console.log('No photo field found in user data:', user);
-            // No photo - show default icon
-            avatarContainer.innerHTML = `
-                <i class="fas fa-user avatar-icon" style="font-size: 3rem; color: white;"></i>
-                <input type="file" id="avatar-upload" accept="image/*" style="display: none;">
-                <div class="avatar-upload" onclick="document.getElementById('avatar-upload').click()">
-                    <i class="fas fa-camera"></i>
-                </div>
-            `;
-        }
-        
-        // Re-attach event listener for avatar upload
-        const avatarUpload = document.getElementById('avatar-upload');
-        if (avatarUpload) {
-            avatarUpload.addEventListener('change', (e) => {
-                this.handleAvatarUpload(e.target.files[0]);
-            });
+            // No photo - show default icon, hide image
+            avatarImg.style.display = 'none';
+            avatarIcon.style.display = 'flex';
         }
     }
 
