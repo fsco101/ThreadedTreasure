@@ -562,6 +562,10 @@ class DashboardCharts {
         const labels = revenueData.map(d => d.name.length > 15 ? d.name.substring(0, 15) + '...' : d.name);
         const revenues = revenueData.map(d => parseFloat(d.revenue) || 0);
 
+        // Generate different colors for each product
+        const backgroundColors = this.generateProductColors(revenueData.length);
+        const borderColors = backgroundColors.map(color => this.adjustColorBrightness(color, -20));
+
         this.charts.revenue = new Chart(ctx, {
             type: 'bar',
             data: {
@@ -569,8 +573,8 @@ class DashboardCharts {
                 datasets: [{
                     label: 'Revenue ($)',
                     data: revenues,
-                    backgroundColor: this.chartColors.warning,
-                    borderColor: this.chartColors.warning,
+                    backgroundColor: backgroundColors,
+                    borderColor: borderColors,
                     borderWidth: 2,
                     borderRadius: 8,
                     borderSkipped: false,
@@ -642,6 +646,71 @@ class DashboardCharts {
             });
             this.charts = {};
         }
+    }
+
+    /**
+     * Generate an array of distinct colors for products
+     */
+    generateProductColors(count) {
+        const baseColors = [
+            '#667eea', // Primary Blue
+            '#28a745', // Success Green
+            '#ffc107', // Warning Yellow
+            '#dc3545', // Danger Red
+            '#17a2b8', // Info Cyan
+            '#6f42c1', // Purple
+            '#fd7e14', // Orange
+            '#20c997', // Teal
+            '#e83e8c', // Pink
+            '#6c757d', // Gray
+            '#007bff', // Bright Blue
+            '#28a745', // Forest Green
+            '#ffc107', // Amber
+            '#dc3545', // Crimson
+            '#17a2b8'  // Turquoise
+        ];
+
+        const colors = [];
+        for (let i = 0; i < count; i++) {
+            if (i < baseColors.length) {
+                colors.push(baseColors[i]);
+            } else {
+                // Generate HSL colors for additional products
+                const hue = (i * 137.5) % 360; // Golden angle for good distribution
+                const saturation = 65 + (i % 3) * 10; // Vary saturation slightly
+                const lightness = 50 + (i % 4) * 5; // Vary lightness slightly
+                colors.push(`hsl(${hue}, ${saturation}%, ${lightness}%)`);
+            }
+        }
+        return colors;
+    }
+
+    /**
+     * Adjust color brightness for borders
+     */
+    adjustColorBrightness(color, amount) {
+        // If it's a hex color
+        if (color.startsWith('#')) {
+            const num = parseInt(color.replace('#', ''), 16);
+            const r = Math.max(0, Math.min(255, (num >> 16) + amount));
+            const g = Math.max(0, Math.min(255, (num >> 8 & 0x00FF) + amount));
+            const b = Math.max(0, Math.min(255, (num & 0x0000FF) + amount));
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+        
+        // If it's an HSL color, adjust lightness
+        if (color.startsWith('hsl')) {
+            const hslMatch = color.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
+            if (hslMatch) {
+                const h = hslMatch[1];
+                const s = hslMatch[2];
+                const l = Math.max(0, Math.min(100, parseInt(hslMatch[3]) + (amount / 5)));
+                return `hsl(${h}, ${s}%, ${l}%)`;
+            }
+        }
+        
+        // Fallback: return original color
+        return color;
     }
 }
 
