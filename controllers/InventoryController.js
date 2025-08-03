@@ -3,7 +3,7 @@ const { promisePool } = require('../config/database');
 class InventoryController {
   /**
    * Check if sufficient inventory is available for order items
-   * @param {Array} items - Array of order items with product_id, quantity, size, color
+   * @param {Array} items - Array of order items with product_id, quantity (size/color ignored)
    * @param {Object} connection - Database connection (optional, will create if not provided)
    * @returns {Object} { success: boolean, message?: string, insufficientItems?: Array }
    */
@@ -17,25 +17,21 @@ class InventoryController {
       const insufficientItems = [];
 
       for (const item of items) {
+        // Get total stock for product (sum of all size/color combinations)
         const [inventoryCheck] = await connection.execute(`
-          SELECT quantity FROM inventory 
-          WHERE product_id = ? AND size = ? AND color = ?
-        `, [
-          item.product_id, 
-          item.size || 'One Size', 
-          item.color || 'Default'
-        ]);
+          SELECT COALESCE(SUM(quantity), 0) as total_stock 
+          FROM inventory 
+          WHERE product_id = ?
+        `, [item.product_id]);
 
-        const availableStock = inventoryCheck.length > 0 ? inventoryCheck[0].quantity : 0;
+        const availableStock = inventoryCheck.length > 0 ? inventoryCheck[0].total_stock : 0;
         
         if (availableStock < item.quantity) {
           insufficientItems.push({
             product_id: item.product_id,
             product_name: item.product_name || `Product ${item.product_id}`,
             required: item.quantity,
-            available: availableStock,
-            size: item.size || 'One Size',
-            color: item.color || 'Default'
+            available: availableStock
           });
         }
       }
@@ -80,37 +76,55 @@ class InventoryController {
 
       // Proceed with deduction for each item
       for (const item of items) {
-        console.log(`📉 Deducting ${item.quantity} units from product ${item.product_id} (${item.size || 'One Size'}, ${item.color || 'Default'})`);
+        console.log(`📉 Deducting ${item.quantity} units from product ${item.product_id}`);
         
-        const [result] = await connection.execute(`
-          UPDATE inventory 
-          SET quantity = quantity - ?, updated_at = NOW()
-          WHERE product_id = ? AND size = ? AND color = ? AND quantity >= ?
-        `, [
-          item.quantity,
-          item.product_id,
-          item.size || 'One Size',
-          item.color || 'Default',
-          item.quantity
-        ]);
+        // Get inventory records for this product (all size/color combinations)
+        const [inventoryRecords] = await connection.execute(`
+          SELECT id, size, color, quantity 
+          FROM inventory 
+          WHERE product_id = ? AND quantity > 0
+          ORDER BY quantity DESC
+        `, [item.product_id]);
 
-        if (result.affectedRows === 0) {
-          // Get current stock for detailed error message
-          const [stockCheck] = await connection.execute(`
-            SELECT quantity FROM inventory 
-            WHERE product_id = ? AND size = ? AND color = ?
-          `, [
-            item.product_id,
-            item.size || 'One Size',
-            item.color || 'Default'
-          ]);
-
-          const currentStock = stockCheck.length > 0 ? stockCheck[0].quantity : 0;
-          
-          console.error(`❌ Failed to deduct inventory for product ${item.product_id}: Available: ${currentStock}, Required: ${item.quantity}`);
+        if (inventoryRecords.length === 0) {
+          console.error(`❌ No inventory records found for product ${item.product_id}`);
           return {
             success: false,
-            message: `Insufficient stock for ${item.product_name || 'product'}. Available: ${currentStock}, Required: ${item.quantity}`
+            message: `No inventory available for ${item.product_name || 'product'}`
+          };
+        }
+
+        let remainingToDeduct = item.quantity;
+        
+        // Deduct from inventory records starting with the highest quantities
+        for (const record of inventoryRecords) {
+          if (remainingToDeduct <= 0) break;
+          
+          const deductFromThis = Math.min(remainingToDeduct, record.quantity);
+          
+          const [result] = await connection.execute(`
+            UPDATE inventory 
+            SET quantity = quantity - ?, updated_at = NOW()
+            WHERE id = ? AND quantity >= ?
+          `, [deductFromThis, record.id, deductFromThis]);
+
+          if (result.affectedRows === 0) {
+            console.error(`❌ Failed to deduct ${deductFromThis} from inventory record ${record.id}`);
+            return {
+              success: false,
+              message: `Failed to deduct inventory for ${item.product_name || 'product'}`
+            };
+          }
+
+          remainingToDeduct -= deductFromThis;
+          console.log(`✅ Deducted ${deductFromThis} units from inventory record ${record.id} (${record.size}, ${record.color})`);
+        }
+
+        if (remainingToDeduct > 0) {
+          console.error(`❌ Could not deduct full quantity for product ${item.product_id}. Still need to deduct: ${remainingToDeduct}`);
+          return {
+            success: false,
+            message: `Insufficient stock for ${item.product_name || 'product'}`
           };
         }
 
@@ -139,41 +153,34 @@ class InventoryController {
       console.log(`📦 Restoring inventory for ${items.length} items...`);
       
       for (const item of items) {
-        console.log(`📈 Restoring ${item.quantity} units to product ${item.product_id} (${item.size || 'One Size'}, ${item.color || 'Default'})`);
+        console.log(`📈 Restoring ${item.quantity} units to product ${item.product_id}`);
         
-        // Check if inventory record exists, create if it doesn't
+        // Check if any inventory record exists for this product
         const [existingInventory] = await connection.execute(`
           SELECT id, quantity FROM inventory 
-          WHERE product_id = ? AND size = ? AND color = ?
-        `, [
-          item.product_id,
-          item.size || 'One Size',
-          item.color || 'Default'
-        ]);
+          WHERE product_id = ? 
+          ORDER BY quantity DESC 
+          LIMIT 1
+        `, [item.product_id]);
 
         if (existingInventory.length > 0) {
-          // Update existing inventory record
+          // Update the first available inventory record (highest quantity)
           await connection.execute(`
             UPDATE inventory 
             SET quantity = quantity + ?, updated_at = NOW()
-            WHERE product_id = ? AND size = ? AND color = ?
-          `, [
-            item.quantity,
-            item.product_id,
-            item.size || 'One Size',
-            item.color || 'Default'
-          ]);
+            WHERE id = ?
+          `, [item.quantity, existingInventory[0].id]);
           
           console.log(`✅ Updated existing inventory: ${existingInventory[0].quantity} + ${item.quantity} = ${existingInventory[0].quantity + item.quantity}`);
         } else {
-          // Create new inventory record if none exists
+          // Create new inventory record with default size/color
           await connection.execute(`
             INSERT INTO inventory (product_id, size, color, quantity, created_at, updated_at) 
             VALUES (?, ?, ?, ?, NOW(), NOW())
           `, [
             item.product_id,
-            item.size || 'One Size',
-            item.color || 'Default',
+            'One Size',
+            'Default',
             item.quantity
           ]);
           
@@ -255,8 +262,6 @@ class InventoryController {
       console.log('📋 Inventory Movement:', {
         timestamp: new Date().toISOString(),
         product_id: movement.product_id,
-        size: movement.size || 'One Size',
-        color: movement.color || 'Default',
         quantity_change: movement.quantity_change,
         movement_type: movement.movement_type, // 'deduct', 'restore', 'adjustment'
         reason: movement.reason,
@@ -269,13 +274,11 @@ class InventoryController {
       /*
       await connection.execute(`
         INSERT INTO inventory_movements 
-        (product_id, size, color, quantity_change, movement_type, reason, order_id, 
+        (product_id, quantity_change, movement_type, reason, order_id, 
          previous_quantity, new_quantity, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
       `, [
         movement.product_id,
-        movement.size || 'One Size',
-        movement.color || 'Default',
         movement.quantity_change,
         movement.movement_type,
         movement.reason,
