@@ -474,7 +474,16 @@ class OrdersManager {
             return;
         }
 
+        // Show loading overlay
+        this.showStatusUpdateLoading();
+
         try {
+            // Simulate progress steps
+            this.updateLoadingProgress(25, 'Validating order status...');
+            await this.delay(500);
+
+            this.updateLoadingProgress(50, 'Updating order in database...');
+            
             const response = await $.ajax({
                 url: `/api/orders/admin/${orderId}/status`,
                 method: 'PATCH',
@@ -487,29 +496,120 @@ class OrdersManager {
                 })
             });
 
+            this.updateLoadingProgress(75, 'Sending email notification...');
+            await this.delay(800);
+
+            this.updateLoadingProgress(100, 'Finalizing update...');
+            await this.delay(500);
+
             if (response.success) {
+                // Hide loading overlay
+                this.hideStatusUpdateLoading();
+                
+                // Show success message with enhanced styling
                 Swal.fire({
                     icon: 'success',
-                    title: 'Success!',
+                    title: 'Order Status Updated!',
                     html: `
-                        <div style="text-align: left;">
-                            <p><strong>✅ Order status updated successfully</strong></p>
-                            <p><strong>📧 Email notification sent to customer</strong></p>
-                            <p><strong>📄 PDF receipt attached to email</strong></p>
+                        <div style="text-align: left; margin-top: 1rem;">
+                            <div class="alert alert-success" style="margin-bottom: 1rem;">
+                                <h6 class="alert-heading mb-2">✅ Update Successful</h6>
+                                <p class="mb-1"><strong>Order #${orderId}</strong> status changed to <strong>${newStatus.toUpperCase()}</strong></p>
+                            </div>
+                            <div class="d-flex flex-column gap-2">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-database text-primary me-2"></i>
+                                    <span>Database updated successfully</span>
+                                </div>
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-envelope text-info me-2"></i>
+                                    <span>Customer notification sent</span>
+                                </div>
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-file-pdf text-danger me-2"></i>
+                                    <span>Receipt attached to email</span>
+                                </div>
+                            </div>
                         </div>
                     `,
-                    confirmButtonText: 'Great!'
+                    confirmButtonText: 'Great!',
+                    confirmButtonColor: '#28a745',
+                    customClass: {
+                        popup: 'animated fadeInUp'
+                    }
                 });
+                
                 $('#statusUpdateModal').modal('hide');
                 this.refreshTable();
             } else {
+                this.hideStatusUpdateLoading();
                 this.showError('Error', response.message || 'Failed to update order status');
             }
         } catch (error) {
+            this.hideStatusUpdateLoading();
             console.error('Update status error:', error);
             const errorMessage = error.responseJSON?.message || 'Failed to update order status';
             this.showError('Error', errorMessage);
         }
+    }
+
+    // Helper method to show loading overlay
+    showStatusUpdateLoading() {
+        const modal = $('#statusUpdateModal');
+        const overlay = $('#statusUpdateLoadingOverlay');
+        const progressBar = $('#statusUpdateProgressBar');
+        
+        // Disable form elements and buttons
+        $('#newStatus').prop('disabled', true);
+        $('#statusUpdateBtn').prop('disabled', true);
+        $('#statusCancelBtn').prop('disabled', true);
+        $('#statusModalCloseBtn').prop('disabled', true);
+        
+        // Reset progress
+        progressBar.css('width', '0%');
+        $('#loadingStatusText').text('Initializing...');
+        
+        // Show overlay with fade effect
+        overlay.fadeIn(300);
+        modal.addClass('loading');
+        
+        // Start with initial progress
+        setTimeout(() => {
+            this.updateLoadingProgress(10, 'Preparing status update...');
+        }, 200);
+    }
+
+    // Helper method to hide loading overlay
+    hideStatusUpdateLoading() {
+        const modal = $('#statusUpdateModal');
+        const overlay = $('#statusUpdateLoadingOverlay');
+        
+        // Re-enable form elements and buttons
+        $('#newStatus').prop('disabled', false);
+        $('#statusUpdateBtn').prop('disabled', false);
+        $('#statusCancelBtn').prop('disabled', false);
+        $('#statusModalCloseBtn').prop('disabled', false);
+        
+        // Hide overlay with fade effect
+        overlay.fadeOut(300);
+        modal.removeClass('loading');
+    }
+
+    // Helper method to update loading progress
+    updateLoadingProgress(percentage, message) {
+        const progressBar = $('#statusUpdateProgressBar');
+        const loadingText = $('#loadingStatusText');
+        
+        progressBar.css('width', `${percentage}%`);
+        loadingText.text(message);
+        
+        // Add subtle animation
+        progressBar.addClass('progress-bar-animated');
+    }
+
+    // Helper method to create delay for better UX
+    delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 
     // ...existing code...

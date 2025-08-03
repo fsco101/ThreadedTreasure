@@ -425,6 +425,87 @@
             box-shadow: 0 5px 15px rgba(0,0,0,0.2);
         }
 
+        /* Status Update Loading Overlay */
+        .status-update-loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(2px);
+            z-index: 1050;
+            border-radius: 0.375rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .loading-content {
+            text-align: center;
+            padding: 2rem;
+            max-width: 300px;
+        }
+
+        .loading-spinner-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .loading-text h5 {
+            color: #2c3e50;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .loading-text p {
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-bottom: 0;
+        }
+
+        .loading-progress {
+            width: 100%;
+        }
+
+        .loading-progress .progress {
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .loading-progress .progress-bar {
+            background: linear-gradient(90deg, #007bff, #0056b3);
+            transition: width 0.3s ease;
+        }
+
+        /* Loading animation keyframes */
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .loading-spinner-container .spinner-border {
+            animation: pulse 2s infinite;
+        }
+
+        /* Disable modal interactions during loading */
+        .modal.loading .modal-content {
+            pointer-events: none;
+        }
+
+        .modal.loading .status-update-loading-overlay {
+            pointer-events: all;
+        }
+
         /* Enhanced responsive design */
         @media (max-width: 1200px) {
             .orders-container {
@@ -584,11 +665,32 @@
     <div class="modal fade" id="statusUpdateModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
+                <!-- Loading Overlay for Status Update -->
+                <div class="status-update-loading-overlay" id="statusUpdateLoadingOverlay" style="display: none;">
+                    <div class="loading-content">
+                        <div class="loading-spinner-container">
+                            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                        <div class="loading-text">
+                            <h5 class="mt-3 mb-2">Updating Order Status</h5>
+                            <p class="text-muted mb-0" id="loadingStatusText">Processing your request...</p>
+                        </div>
+                        <div class="loading-progress mt-3">
+                            <div class="progress" style="height: 6px;">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     role="progressbar" style="width: 0%" id="statusUpdateProgressBar"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="modal-header bg-info text-white">
                     <h5 class="modal-title">
                         <i class="fas fa-edit me-2"></i>Update Order Status
                     </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" id="statusModalCloseBtn"></button>
                 </div>
                 <div class="modal-body">
                     <form id="statusUpdateForm">
@@ -613,8 +715,8 @@
                     </form>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="updateOrderStatus()">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="statusCancelBtn">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="updateOrderStatus()" id="statusUpdateBtn">
                         <i class="fas fa-save"></i> Update Status
                     </button>
                 </div>

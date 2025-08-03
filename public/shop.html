@@ -2876,7 +2876,130 @@ $(document).ready(function() {
     } else {
         console.error('❌ ReviewManager class not found - check if reviews.js is loaded');
     }
+
+    // Check URL parameters for direct product review
+    handleURLParameters();
 });
+
+// Handle URL parameters for direct product review access
+function handleURLParameters() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const productId = urlParams.get('product');
+    const showReview = urlParams.get('review');
+    
+    if (productId && showReview === 'true') {
+        console.log('Direct review access requested for product:', productId);
+        
+        // Find and display the specific product
+        setTimeout(() => {
+            openProductModalForReview(productId); // Call special function for review access
+        }, 1000); // Small delay to ensure everything is loaded
+    }
+}
+
+// Enhanced openProductModal function specifically for review access
+async function openProductModalForReview(productId) {
+    try {
+        // Find the product in our cached data
+        currentProduct = allProducts.find(p => p.id === parseInt(productId));
+        if (!currentProduct) {
+            // If not in cache, try to fetch it
+            const response = await fetch(`http://localhost:3000/api/products/${productId}`);
+            if (!response.ok) {
+                throw new Error('Product not found');
+            }
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error(result.message || 'Failed to load product');
+            }
+            currentProduct = result.data;
+        }
+
+        // Populate modal with product data
+        populateModal(currentProduct);
+        
+        // Show the modal
+        document.getElementById('product-modal').classList.add('show');
+        document.body.style.overflow = 'hidden';
+        
+        // Initialize reviews with special highlight for review form
+        if (window.reviewManager && typeof window.reviewManager.initializeReviews === 'function') {
+            console.log('Initializing reviews for direct review access:', productId);
+            
+            const reviewsContainer = document.getElementById('productReviews');
+            if (reviewsContainer) {
+                reviewsContainer.innerHTML = `
+                    <div class="reviews-section">
+                        <div class="reviews-header">
+                            <h3>Customer Reviews</h3>
+                            <p class="text-muted">Loading reviews...</p>
+                        </div>
+                    </div>
+                `;
+                reviewsContainer.style.display = 'block';
+                
+                // Initialize reviews and then highlight the form
+                setTimeout(async () => {
+                    try {
+                        await window.reviewManager.initializeReviews(productId);
+                        console.log('Reviews initialized, highlighting review form...');
+                        
+                        // Scroll to and highlight the review form
+                        setTimeout(() => {
+                            const reviewForm = reviewsContainer.querySelector('.review-form');
+                            if (reviewForm) {
+                                // Scroll to review section
+                                reviewsContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                
+                                // Highlight the review form
+                                reviewForm.style.border = '3px solid #007bff';
+                                reviewForm.style.borderRadius = '8px';
+                                reviewForm.style.backgroundColor = '#f8f9fa';
+                                reviewForm.style.boxShadow = '0 0 15px rgba(0, 123, 255, 0.3)';
+                                
+                                // Focus on the comment textarea
+                                const commentField = reviewForm.querySelector('textarea[name="comment"]');
+                                if (commentField) {
+                                    commentField.focus();
+                                }
+                                
+                                // Show helpful message
+                                Swal.fire({
+                                    title: 'Leave a Review',
+                                    text: 'Please share your experience with this product',
+                                    icon: 'info',
+                                    timer: 4000,
+                                    showConfirmButton: false,
+                                    position: 'top-end',
+                                    toast: true
+                                });
+                                
+                                // Remove highlight after 10 seconds
+                                setTimeout(() => {
+                                    reviewForm.style.border = '';
+                                    reviewForm.style.backgroundColor = '';
+                                    reviewForm.style.boxShadow = '';
+                                }, 10000);
+                            }
+                        }, 500);
+                        
+                    } catch (error) {
+                        console.error('Error initializing reviews:', error);
+                    }
+                }, 200);
+            }
+        }
+        
+    } catch (error) {
+        console.error('Error loading product for review:', error);
+        Swal.fire({
+            title: 'Product Not Found',
+            text: 'The product you are trying to review could not be found.',
+            icon: 'error',
+            confirmButtonText: 'OK'
+        });
+    }
+}
 
 // Pagination and Infinite Scroll Functions
 function handleViewModeChange(event) {

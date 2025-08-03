@@ -549,7 +549,7 @@ class ProductsManager {
                                    id="productActiveSwitch"
                                    ${productIsActive}>
                             <label class="form-check-label fw-bold text-primary" for="productActiveSwitch">
-                                <i class="fas fa-toggle-on me-2"></i>Product Active
+                                <i class="fas fa-toggle-on me-2"></i>Product Deactive
                             </label>
                         </div>
                         <small class="form-text text-muted">Enable/disable product visibility</small>
