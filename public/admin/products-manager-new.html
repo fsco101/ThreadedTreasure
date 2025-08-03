@@ -67,89 +67,7 @@
             padding: 2rem;
         }
 
-        /* Enhanced product image styling */
-        .product-image-container {
-            width: 60px;
-            height: 60px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-            border-radius: 10px;
-            overflow: hidden;
-            position: relative;
-            margin: 0 auto;
-            border: 2px solid #e9ecef;
-            transition: all 0.3s ease;
-        }
 
-        .product-image-container:hover {
-            transform: scale(1.05);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        }
-
-        .product-image-container .product-thumb {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            border-radius: 8px;
-            transition: opacity 0.3s ease;
-            opacity: 0;
-            position: absolute;
-            top: 0;
-            left: 0;
-        }
-
-        .product-image-container .product-thumb.loaded {
-            opacity: 1;
-        }
-
-        .product-image-container .image-placeholder {
-            position: absolute;
-            color: #6c757d;
-            font-size: 1.5rem;
-            z-index: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            height: 100%;
-        }
-
-        .product-image-container .no-image-text {
-            position: absolute;
-            font-size: 0.7rem;
-            color: #6c757d;
-            text-align: center;
-            z-index: 2;
-            font-weight: 500;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .image-count-badge {
-            width: 20px;
-            height: 20px;
-            font-size: 0.7rem;
-            font-weight: bold;
-            transform: translate(50%, -50%);
-            z-index: 10;
-            line-height: 1;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-
-        /* Image loading states */
-        .product-image-container.loading {
-            background: linear-gradient(135deg, #e9ecef, #f8f9fa);
-        }
-
-        .product-image-container.error {
-            background: linear-gradient(135deg, #f8d7da, #f5c6cb);
-            border-color: #f5c6cb;
-        }
 
         .table-header {
             display: flex;
@@ -413,7 +331,6 @@
                         <tr>
                             <th><input type="checkbox" id="selectAllProducts"></th>
                             <th>ID</th>
-                            <th>Image</th>
                             <th>Name</th>
                             <th>Category</th>
                             <th>Price</th>
