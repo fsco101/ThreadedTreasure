@@ -6,6 +6,25 @@
     <title>My Profile - ThreadedTreasure</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <!-- jQuery Validation CSS -->
+    <style>
+        .error {
+            color: #f56565;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+            display: block;
+        }
+        
+        input.error, textarea.error {
+            border-color: #f56565 !important;
+            box-shadow: 0 0 0 3px rgba(245, 101, 101, 0.1) !important;
+        }
+        
+        input.valid, textarea.valid {
+            border-color: #48bb78 !important;
+            box-shadow: 0 0 0 3px rgba(72, 187, 120, 0.1) !important;
+        }
+    </style>
     <style>
         :root {
             --primary-color: #667eea;
@@ -551,6 +570,9 @@
         </div>
     </main>
 
+ <!-- jQuery and jQuery Validation -->
+ <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+ <script src="https://cdn.jsdelivr.net/npm/jquery-validation@1.19.5/dist/jquery.validate.min.js"></script>
  <script src="js/profile.js"></script>
 <div data-component="components/footer.html"></div>
 <script src="js/componentLoader.js"></script>

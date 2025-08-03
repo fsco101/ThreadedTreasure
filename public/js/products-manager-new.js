@@ -76,6 +76,10 @@ class ProductsManager {
                 },
                 description: {
                     maxlength: 1000
+                },
+                product_images: {
+                    required: false,
+                    accept: "image/*"
                 }
             },
             messages: {
@@ -96,6 +100,9 @@ class ProductsManager {
                 },
                 description: {
                     maxlength: "Description cannot exceed 1000 characters"
+                },
+                product_images: {
+                    accept: "Please select valid image files (jpg, jpeg, png, gif, webp)"
                 }
             },
             errorElement: 'span',
@@ -114,6 +121,35 @@ class ProductsManager {
                 return false;
             }
         });
+
+        // Add custom validation method for image files
+        $.validator.addMethod("accept", function(value, element, param) {
+            // If no file is selected, it's valid (since it's optional)
+            if (!value) return true;
+            
+            // Get the file input element
+            const files = element.files;
+            if (!files || files.length === 0) return true;
+            
+            // Check each selected file
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const fileType = file.type;
+                
+                // Check if it's an image file
+                if (!fileType.startsWith('image/')) {
+                    return false;
+                }
+                
+                // Check specific image types
+                const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+                if (!allowedTypes.includes(fileType)) {
+                    return false;
+                }
+            }
+            
+            return true;
+        }, "Please select valid image files only");
     }
 
     async loadCategories() {

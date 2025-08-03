@@ -18,6 +18,9 @@ class ProfileManager {
         // Setup event listeners
         this.setupEventListeners();
         
+        // Initialize jQuery validation
+        this.setupValidation();
+        
         // Load initial data
         this.loadProfile();
         this.loadOrders();
@@ -47,16 +50,8 @@ class ProfileManager {
             });
         });
 
-        // Forms
-        document.getElementById('personal-info-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.updateProfile();
-        });
-
-        document.getElementById('password-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.changePassword();
-        });
+        // Forms - Remove default handlers since jQuery validation will handle them
+        // The validation setup includes submitHandler that calls our methods
 
         document.getElementById('new_password').addEventListener('input', (e) => {
             this.checkPasswordStrength(e.target.value);
@@ -68,6 +63,106 @@ class ProfileManager {
                 this.handleAvatarUpload(e.target.files[0]);
             }
         });
+    }
+
+    setupValidation() {
+        // Personal Information Form Validation
+        $('#personal-info-form').validate({
+            rules: {
+                name: {
+                    required: true,
+                    minlength: 2,
+                    maxlength: 100
+                },
+                email: {
+                    required: true,
+                    email: true,
+                    maxlength: 255
+                },
+                phone: {
+                    minlength: 10,
+                    maxlength: 20,
+                    pattern: /^[\+]?[1-9][\d]{0,15}$/
+                },
+                address: {
+                    maxlength: 500
+                }
+            },
+            messages: {
+                name: {
+                    required: "Please enter your full name",
+                    minlength: "Name must be at least 2 characters long",
+                    maxlength: "Name cannot exceed 100 characters"
+                },
+                email: {
+                    required: "Please enter your email address",
+                    email: "Please enter a valid email address",
+                    maxlength: "Email cannot exceed 255 characters"
+                },
+                phone: {
+                    minlength: "Phone number must be at least 10 digits",
+                    maxlength: "Phone number cannot exceed 20 characters",
+                    pattern: "Please enter a valid phone number"
+                },
+                address: {
+                    maxlength: "Address cannot exceed 500 characters"
+                }
+            },
+            errorElement: 'span',
+            errorClass: 'error',
+            validClass: 'valid',
+            submitHandler: (form) => {
+                this.updateProfile();
+                return false;
+            }
+        });
+
+        // Password Form Validation
+        $('#password-form').validate({
+            rules: {
+                current_password: {
+                    required: true,
+                    minlength: 6
+                },
+                new_password: {
+                    required: true,
+                    minlength: 8,
+                    pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/
+                },
+                confirm_password: {
+                    required: true,
+                    equalTo: "#new_password"
+                }
+            },
+            messages: {
+                current_password: {
+                    required: "Please enter your current password",
+                    minlength: "Password must be at least 6 characters long"
+                },
+                new_password: {
+                    required: "Please enter a new password",
+                    minlength: "Password must be at least 8 characters long",
+                    pattern: "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character"
+                },
+                confirm_password: {
+                    required: "Please confirm your new password",
+                    equalTo: "Passwords do not match"
+                }
+            },
+            errorElement: 'span',
+            errorClass: 'error',
+            validClass: 'valid',
+            submitHandler: (form) => {
+                this.changePassword();
+                return false;
+            }
+        });
+
+        // Add custom validation method for phone pattern
+        $.validator.addMethod("pattern", function(value, element, regexp) {
+            if (!value) return true; // Allow empty values for optional fields
+            return regexp.test(value);
+        }, "Please enter a valid format");
     }
 
     showSection(sectionName) {
