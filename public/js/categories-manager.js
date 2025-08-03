@@ -45,6 +45,50 @@ class CategoriesManager {
         $('#selectAllCategories').on('change', (e) => {
             $('#categoriesTable tbody input[type="checkbox"]').prop('checked', e.target.checked);
         });
+
+        // Setup jQuery Validation
+        this.setupFormValidation();
+    }
+
+    setupFormValidation() {
+        // Setup jQuery Validation for category form
+        $('#categoryForm').validate({
+            rules: {
+                name: {
+                    required: true,
+                    minlength: 2,
+                    maxlength: 100
+                },
+                description: {
+                    maxlength: 500
+                }
+            },
+            messages: {
+                name: {
+                    required: "Category name is required",
+                    minlength: "Category name must be at least 2 characters long",
+                    maxlength: "Category name cannot exceed 100 characters"
+                },
+                description: {
+                    maxlength: "Description cannot exceed 500 characters"
+                }
+            },
+            errorElement: 'span',
+            errorPlacement: function(error, element) {
+                error.addClass('error');
+                element.closest('.mb-3').append(error);
+            },
+            highlight: function(element, errorClass, validClass) {
+                $(element).addClass('error').removeClass('valid');
+            },
+            unhighlight: function(element, errorClass, validClass) {
+                $(element).removeClass('error').addClass('valid');
+            },
+            submitHandler: function(form) {
+                // This will be handled by the saveCategory method
+                return false;
+            }
+        });
     }
 
     async initializeTable() {
@@ -358,6 +402,19 @@ class CategoriesManager {
     }
 
     async saveCategory() {
+        // Validate form first
+        if (!$('#categoryForm').valid()) {
+            console.log('❌ Form validation failed');
+            Swal.fire({
+                icon: 'error',
+                title: 'Validation Error',
+                text: 'Please correct the errors in the form before submitting.',
+                timer: 3000,
+                showConfirmButton: false
+            });
+            return;
+        }
+
         const formData = new FormData($('#categoryForm')[0]);
         
         try {
@@ -406,6 +463,13 @@ class CategoriesManager {
 
     resetForm() {
         $('#categoryForm')[0].reset();
+        
+        // Clear validation errors
+        if ($('#categoryForm').data('validator')) {
+            $('#categoryForm').validate().resetForm();
+            $('#categoryForm').find('.error').removeClass('error');
+            $('#categoryForm').find('.valid').removeClass('valid');
+        }
     }
 
     refreshTable() {

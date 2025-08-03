@@ -47,6 +47,73 @@ class ProductsManager {
         $('#selectAllProducts').on('change', (e) => {
             $('#productsTable tbody input[type="checkbox"]').prop('checked', e.target.checked);
         });
+
+        // Setup jQuery Validation
+        this.setupFormValidation();
+    }
+
+    setupFormValidation() {
+        // Setup jQuery Validation for product form
+        $('#productForm').validate({
+            rules: {
+                name: {
+                    required: true,
+                    minlength: 3,
+                    maxlength: 255
+                },
+                price: {
+                    required: true,
+                    number: true,
+                    min: 0.01
+                },
+                stock_quantity: {
+                    required: true,
+                    digits: true,
+                    min: 0
+                },
+                category_id: {
+                    required: false
+                },
+                description: {
+                    maxlength: 1000
+                }
+            },
+            messages: {
+                name: {
+                    required: "Product name is required",
+                    minlength: "Product name must be at least 3 characters long",
+                    maxlength: "Product name cannot exceed 255 characters"
+                },
+                price: {
+                    required: "Price is required",
+                    number: "Please enter a valid price",
+                    min: "Price must be greater than 0"
+                },
+                stock_quantity: {
+                    required: "Stock quantity is required",
+                    digits: "Please enter a whole number",
+                    min: "Stock quantity cannot be negative"
+                },
+                description: {
+                    maxlength: "Description cannot exceed 1000 characters"
+                }
+            },
+            errorElement: 'span',
+            errorPlacement: function(error, element) {
+                error.addClass('error');
+                element.closest('.mb-3').append(error);
+            },
+            highlight: function(element, errorClass, validClass) {
+                $(element).addClass('error').removeClass('valid');
+            },
+            unhighlight: function(element, errorClass, validClass) {
+                $(element).removeClass('error').addClass('valid');
+            },
+            submitHandler: function(form) {
+                // This will be handled by the saveProduct method
+                return false;
+            }
+        });
     }
 
     async loadCategories() {
@@ -582,6 +649,19 @@ class ProductsManager {
     }
 
     async saveProduct() {
+        // Validate form first
+        if (!$('#productForm').valid()) {
+            console.log('❌ Form validation failed');
+            Swal.fire({
+                icon: 'error',
+                title: 'Validation Error',
+                text: 'Please correct the errors in the form before submitting.',
+                timer: 3000,
+                showConfirmButton: false
+            });
+            return;
+        }
+
         const formData = new FormData($('#productForm')[0]);
         
         try {
@@ -632,6 +712,13 @@ class ProductsManager {
         $('#productForm')[0].reset();
         $('#imagePreviewArea').hide();
         $('#imagePreviewContainer').empty();
+        
+        // Clear validation errors
+        if ($('#productForm').data('validator')) {
+            $('#productForm').validate().resetForm();
+            $('#productForm').find('.error').removeClass('error');
+            $('#productForm').find('.valid').removeClass('valid');
+        }
     }
 
     refreshTable() {
