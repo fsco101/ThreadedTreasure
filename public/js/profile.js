@@ -18,9 +18,6 @@ class ProfileManager {
         // Setup event listeners
         this.setupEventListeners();
         
-        // Initialize jQuery validation
-        this.setupValidation();
-        
         // Load initial data
         this.loadProfile();
         this.loadOrders();
@@ -50,119 +47,37 @@ class ProfileManager {
             });
         });
 
-        // Forms - Remove default handlers since jQuery validation will handle them
-        // The validation setup includes submitHandler that calls our methods
+        // Forms
+        document.getElementById('personal-info-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.updateProfile();
+        });
+
+        document.getElementById('password-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.changePassword();
+        });
 
         document.getElementById('new_password').addEventListener('input', (e) => {
             this.checkPasswordStrength(e.target.value);
         });
 
-        // Avatar upload - single delegated event listener
+        // Avatar upload - delegate event to handle dynamic content
         document.addEventListener('change', (e) => {
             if (e.target && e.target.id === 'avatar-upload') {
                 this.handleAvatarUpload(e.target.files[0]);
             }
         });
-    }
 
-    setupValidation() {
-        // Personal Information Form Validation
-        $('#personal-info-form').validate({
-            rules: {
-                name: {
-                    required: true,
-                    minlength: 2,
-                    maxlength: 100
-                },
-                email: {
-                    required: true,
-                    email: true,
-                    maxlength: 255
-                },
-                phone: {
-                    minlength: 10,
-                    maxlength: 20,
-                    pattern: /^[\+]?[1-9][\d]{0,15}$/
-                },
-                address: {
-                    maxlength: 500
+        // Also handle click events for avatar upload button
+        document.addEventListener('click', (e) => {
+            if (e.target && e.target.closest('.avatar-upload')) {
+                const uploadInput = document.getElementById('avatar-upload');
+                if (uploadInput) {
+                    uploadInput.click();
                 }
-            },
-            messages: {
-                name: {
-                    required: "Please enter your full name",
-                    minlength: "Name must be at least 2 characters long",
-                    maxlength: "Name cannot exceed 100 characters"
-                },
-                email: {
-                    required: "Please enter your email address",
-                    email: "Please enter a valid email address",
-                    maxlength: "Email cannot exceed 255 characters"
-                },
-                phone: {
-                    minlength: "Phone number must be at least 10 digits",
-                    maxlength: "Phone number cannot exceed 20 characters",
-                    pattern: "Please enter a valid phone number"
-                },
-                address: {
-                    maxlength: "Address cannot exceed 500 characters"
-                }
-            },
-            errorElement: 'span',
-            errorClass: 'error',
-            validClass: 'valid',
-            submitHandler: (form) => {
-                this.updateProfile();
-                return false;
             }
         });
-
-        // Password Form Validation
-        $('#password-form').validate({
-            rules: {
-                current_password: {
-                    required: true,
-                    minlength: 6
-                },
-                new_password: {
-                    required: true,
-                    minlength: 8,
-                    pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/
-                },
-                confirm_password: {
-                    required: true,
-                    equalTo: "#new_password"
-                }
-            },
-            messages: {
-                current_password: {
-                    required: "Please enter your current password",
-                    minlength: "Password must be at least 6 characters long"
-                },
-                new_password: {
-                    required: "Please enter a new password",
-                    minlength: "Password must be at least 8 characters long",
-                    pattern: "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character"
-                },
-                confirm_password: {
-                    required: "Please confirm your new password",
-                    equalTo: "Passwords do not match"
-                }
-            },
-            errorElement: 'span',
-            errorClass: 'error',
-            validClass: 'valid',
-            submitHandler: (form) => {
-                this.changePassword();
-                return false;
-            }
-        });
-
-        // Add custom validation method for phone pattern
-        $.validator.addMethod("pattern", function(value, element, regexp) {
-            if (!value) return true; // Allow empty values for optional fields
-            return regexp.test(value);
-        }, "Please enter a valid format");
     }
 
     showSection(sectionName) {
@@ -250,8 +165,6 @@ class ProfileManager {
 
     updateAvatarDisplay(user) {
         const avatarContainer = document.getElementById('profile-avatar');
-        const avatarImg = document.getElementById('profile-avatar-img');
-        const avatarIcon = document.getElementById('profile-avatar-icon');
         
         // Check for various possible photo field names
         const photoField = user.profile_photo || user.avatar || user.photo || user.profile_picture;
@@ -284,25 +197,34 @@ class ProfileManager {
             console.log('User photo field:', photoField);
             console.log('Constructed avatar URL:', avatarUrl);
             
-            // Show image, hide icon
-            avatarImg.src = avatarUrl;
-            avatarImg.style.display = 'block';
-            avatarIcon.style.display = 'none';
-            
-            // Handle image load/error
-            avatarImg.onload = () => {
-                console.log('Avatar image loaded successfully:', avatarUrl);
-            };
-            avatarImg.onerror = () => {
-                console.error('Failed to load avatar:', avatarUrl);
-                avatarImg.style.display = 'none';
-                avatarIcon.style.display = 'flex';
-            };
+            avatarContainer.innerHTML = `
+                <img src="${avatarUrl}" alt="Profile Avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" 
+                     onload="console.log('Avatar image loaded successfully:', this.src);"
+                     onerror="console.error('Failed to load avatar:', this.src); this.style.display='none'; this.parentNode.querySelector('.avatar-icon').style.display='flex';">
+                <i class="fas fa-user avatar-icon" style="display: none; font-size: 3rem; color: white;"></i>
+                <input type="file" id="avatar-upload" accept="image/*" style="display: none;">
+                <div class="avatar-upload" onclick="document.getElementById('avatar-upload').click()">
+                    <i class="fas fa-camera"></i>
+                </div>
+            `;
         } else {
             console.log('No photo field found in user data:', user);
-            // No photo - show default icon, hide image
-            avatarImg.style.display = 'none';
-            avatarIcon.style.display = 'flex';
+            // No photo - show default icon
+            avatarContainer.innerHTML = `
+                <i class="fas fa-user avatar-icon" style="font-size: 3rem; color: white;"></i>
+                <input type="file" id="avatar-upload" accept="image/*" style="display: none;">
+                <div class="avatar-upload" onclick="document.getElementById('avatar-upload').click()">
+                    <i class="fas fa-camera"></i>
+                </div>
+            `;
+        }
+        
+        // Re-attach event listener for avatar upload
+        const avatarUpload = document.getElementById('avatar-upload');
+        if (avatarUpload) {
+            avatarUpload.addEventListener('change', (e) => {
+                this.handleAvatarUpload(e.target.files[0]);
+            });
         }
     }
 

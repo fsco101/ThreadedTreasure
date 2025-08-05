@@ -3,7 +3,7 @@ const { promisePool } = require('../config/database');
 class InventoryController {
   /**
    * Check if sufficient inventory is available for order items
-   * @param {Array} items - Array of order items with product_id, quantity (size/color ignored)
+   * @param {Array} items - Array of order items with product_id, quantity, size, color
    * @param {Object} connection - Database connection (optional, will create if not provided)
    * @returns {Object} { success: boolean, message?: string, insufficientItems?: Array }
    */
@@ -17,21 +17,25 @@ class InventoryController {
       const insufficientItems = [];
 
       for (const item of items) {
-        // Get total stock for product (sum of all size/color combinations)
         const [inventoryCheck] = await connection.execute(`
-          SELECT COALESCE(SUM(quantity), 0) as total_stock 
-          FROM inventory 
-          WHERE product_id = ?
-        `, [item.product_id]);
+          SELECT quantity FROM inventory 
+          WHERE product_id = ? AND size = ? AND color = ?
+        `, [
+          item.product_id, 
+          item.size || 'One Size', 
+          item.color || 'Default'
+        ]);
 
-        const availableStock = inventoryCheck.length > 0 ? inventoryCheck[0].total_stock : 0;
+        const availableStock = inventoryCheck.length > 0 ? inventoryCheck[0].quantity : 0;
         
         if (availableStock < item.quantity) {
           insufficientItems.push({
             product_id: item.product_id,
             product_name: item.product_name || `Product ${item.product_id}`,
             required: item.quantity,
-            available: availableStock
+            available: availableStock,
+            size: item.size || 'One Size',
+            color: item.color || 'Default'
           });
         }
       }
@@ -60,81 +64,42 @@ class InventoryController {
    */
   static async deductInventory(items, connection) {
     try {
-      console.log(`📦 Deducting inventory for ${items.length} items...`);
-      
-      // First, check all items have sufficient stock before making any changes
-      const stockValidation = await this.checkInventoryAvailability(items, connection);
-      if (!stockValidation.success) {
-        console.error('❌ Insufficient stock detected:', stockValidation.insufficientItems);
-        return {
-          success: false,
-          message: `Insufficient stock: ${stockValidation.insufficientItems.map(item => 
-            `${item.product_name} (need ${item.required}, have ${item.available})`
-          ).join(', ')}`
-        };
-      }
-
-      // Proceed with deduction for each item
       for (const item of items) {
-        console.log(`📉 Deducting ${item.quantity} units from product ${item.product_id}`);
-        
-        // Get inventory records for this product (all size/color combinations)
-        const [inventoryRecords] = await connection.execute(`
-          SELECT id, size, color, quantity 
-          FROM inventory 
-          WHERE product_id = ? AND quantity > 0
-          ORDER BY quantity DESC
-        `, [item.product_id]);
+        const [result] = await connection.execute(`
+          UPDATE inventory 
+          SET quantity = quantity - ? 
+          WHERE product_id = ? AND size = ? AND color = ? AND quantity >= ?
+        `, [
+          item.quantity,
+          item.product_id,
+          item.size || 'One Size',
+          item.color || 'Default',
+          item.quantity
+        ]);
 
-        if (inventoryRecords.length === 0) {
-          console.error(`❌ No inventory records found for product ${item.product_id}`);
+        if (result.affectedRows === 0) {
+          // Get current stock for detailed error message
+          const [stockCheck] = await connection.execute(`
+            SELECT quantity FROM inventory 
+            WHERE product_id = ? AND size = ? AND color = ?
+          `, [
+            item.product_id,
+            item.size || 'One Size',
+            item.color || 'Default'
+          ]);
+
+          const currentStock = stockCheck.length > 0 ? stockCheck[0].quantity : 0;
+          
           return {
             success: false,
-            message: `No inventory available for ${item.product_name || 'product'}`
+            message: `Insufficient stock for ${item.product_name || 'product'}. Available: ${currentStock}, Required: ${item.quantity}`
           };
         }
-
-        let remainingToDeduct = item.quantity;
-        
-        // Deduct from inventory records starting with the highest quantities
-        for (const record of inventoryRecords) {
-          if (remainingToDeduct <= 0) break;
-          
-          const deductFromThis = Math.min(remainingToDeduct, record.quantity);
-          
-          const [result] = await connection.execute(`
-            UPDATE inventory 
-            SET quantity = quantity - ?, updated_at = NOW()
-            WHERE id = ? AND quantity >= ?
-          `, [deductFromThis, record.id, deductFromThis]);
-
-          if (result.affectedRows === 0) {
-            console.error(`❌ Failed to deduct ${deductFromThis} from inventory record ${record.id}`);
-            return {
-              success: false,
-              message: `Failed to deduct inventory for ${item.product_name || 'product'}`
-            };
-          }
-
-          remainingToDeduct -= deductFromThis;
-          console.log(`✅ Deducted ${deductFromThis} units from inventory record ${record.id} (${record.size}, ${record.color})`);
-        }
-
-        if (remainingToDeduct > 0) {
-          console.error(`❌ Could not deduct full quantity for product ${item.product_id}. Still need to deduct: ${remainingToDeduct}`);
-          return {
-            success: false,
-            message: `Insufficient stock for ${item.product_name || 'product'}`
-          };
-        }
-
-        console.log(`✅ Successfully deducted ${item.quantity} units from product ${item.product_id}`);
       }
 
-      console.log('✅ All inventory deductions completed successfully');
       return { success: true };
     } catch (error) {
-      console.error('❌ Error deducting inventory:', error);
+      console.error('Error deducting inventory:', error);
       return {
         success: false,
         message: 'Failed to deduct inventory: ' + error.message
@@ -150,48 +115,22 @@ class InventoryController {
    */
   static async restoreInventory(items, connection) {
     try {
-      console.log(`📦 Restoring inventory for ${items.length} items...`);
-      
       for (const item of items) {
-        console.log(`📈 Restoring ${item.quantity} units to product ${item.product_id}`);
-        
-        // Check if any inventory record exists for this product
-        const [existingInventory] = await connection.execute(`
-          SELECT id, quantity FROM inventory 
-          WHERE product_id = ? 
-          ORDER BY quantity DESC 
-          LIMIT 1
-        `, [item.product_id]);
-
-        if (existingInventory.length > 0) {
-          // Update the first available inventory record (highest quantity)
-          await connection.execute(`
-            UPDATE inventory 
-            SET quantity = quantity + ?, updated_at = NOW()
-            WHERE id = ?
-          `, [item.quantity, existingInventory[0].id]);
-          
-          console.log(`✅ Updated existing inventory: ${existingInventory[0].quantity} + ${item.quantity} = ${existingInventory[0].quantity + item.quantity}`);
-        } else {
-          // Create new inventory record with default size/color
-          await connection.execute(`
-            INSERT INTO inventory (product_id, size, color, quantity, created_at, updated_at) 
-            VALUES (?, ?, ?, ?, NOW(), NOW())
-          `, [
-            item.product_id,
-            'One Size',
-            'Default',
-            item.quantity
-          ]);
-          
-          console.log(`✅ Created new inventory record with ${item.quantity} units`);
-        }
+        await connection.execute(`
+          UPDATE inventory 
+          SET quantity = quantity + ? 
+          WHERE product_id = ? AND size = ? AND color = ?
+        `, [
+          item.quantity,
+          item.product_id,
+          item.size || 'One Size',
+          item.color || 'Default'
+        ]);
       }
 
-      console.log('✅ All inventory restorations completed successfully');
       return { success: true };
     } catch (error) {
-      console.error('❌ Error restoring inventory:', error);
+      console.error('Error restoring inventory:', error);
       return {
         success: false,
         message: 'Failed to restore inventory: ' + error.message
@@ -215,127 +154,22 @@ class InventoryController {
     const willInventoryBeDeducted = inventoryDeductedStatuses.includes(newStatus);
     const willInventoryBeReturned = inventoryReturnedStatuses.includes(newStatus);
 
-    console.log(`📦 Inventory Status Change: ${currentStatus} → ${newStatus}`);
-    console.log(`🔍 Was deducted: ${wasInventoryDeducted}, Will be deducted: ${willInventoryBeDeducted}, Will be returned: ${willInventoryBeReturned}`);
-
     // Deduct inventory if transitioning to processing/shipped/delivered for the first time
     if (!wasInventoryDeducted && willInventoryBeDeducted) {
-      console.log('📉 Deducting inventory...');
       const result = await this.deductInventory(orderItems, connection);
       if (!result.success) {
-        console.error('❌ Inventory deduction failed:', result.message);
         return result;
       }
-      console.log('✅ Inventory deducted successfully');
     }
     // Restore inventory if transitioning from deducted status to cancelled/refunded
     else if (wasInventoryDeducted && willInventoryBeReturned) {
-      console.log('📈 Restoring inventory...');
       const result = await this.restoreInventory(orderItems, connection);
       if (!result.success) {
-        console.error('❌ Inventory restoration failed:', result.message);
         return result;
       }
-      console.log('✅ Inventory restored successfully');
-    }
-    // Handle special case: pending to cancelled (no inventory change needed)
-    else if (currentStatus === 'pending' && newStatus === 'cancelled') {
-      console.log('ℹ️ No inventory change needed (pending → cancelled)');
-    }
-    // Handle other transitions that don't require inventory changes
-    else {
-      console.log('ℹ️ No inventory change required for this status transition');
     }
 
     return { success: true };
-  }
-
-  /**
-   * Log inventory movement for audit trail
-   * @param {Object} movement - Movement details
-   * @param {Object} connection - Database connection
-   */
-  static async logInventoryMovement(movement, connection) {
-    try {
-      // This would insert into an inventory_movements table if you have one
-      // For now, we'll just log to console
-      console.log('📋 Inventory Movement:', {
-        timestamp: new Date().toISOString(),
-        product_id: movement.product_id,
-        quantity_change: movement.quantity_change,
-        movement_type: movement.movement_type, // 'deduct', 'restore', 'adjustment'
-        reason: movement.reason,
-        order_id: movement.order_id || null,
-        previous_quantity: movement.previous_quantity,
-        new_quantity: movement.new_quantity
-      });
-      
-      // Uncomment and modify if you want to create an inventory_movements table:
-      /*
-      await connection.execute(`
-        INSERT INTO inventory_movements 
-        (product_id, quantity_change, movement_type, reason, order_id, 
-         previous_quantity, new_quantity, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
-      `, [
-        movement.product_id,
-        movement.quantity_change,
-        movement.movement_type,
-        movement.reason,
-        movement.order_id || null,
-        movement.previous_quantity,
-        movement.new_quantity
-      ]);
-      */
-    } catch (error) {
-      console.error('Error logging inventory movement:', error);
-      // Don't fail the main operation if logging fails
-    }
-  }
-
-  /**
-   * Get inventory movement history for a product
-   * @param {Object} req - Express request object
-   * @param {Object} res - Express response object
-   */
-  static async getInventoryMovements(req, res) {
-    try {
-      const { id } = req.params; // product ID
-      const limit = parseInt(req.query.limit) || 50;
-      
-      // This would query inventory_movements table if you have one
-      // For now, return a placeholder response
-      res.json({
-        success: true,
-        message: 'Inventory movements tracking not yet implemented',
-        data: {
-          product_id: id,
-          movements: [],
-          note: 'To enable inventory movement tracking, create an inventory_movements table and uncomment the code in logInventoryMovement method'
-        }
-      });
-      
-      // Uncomment when you have inventory_movements table:
-      /*
-      const query = `
-        SELECT * FROM inventory_movements 
-        WHERE product_id = ? 
-        ORDER BY created_at DESC 
-        LIMIT ?
-      `;
-      const [rows] = await promisePool.execute(query, [id, limit]);
-      
-      res.json({
-        success: true,
-        data: rows
-      });
-      */
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: error.message
-      });
-    }
   }
 
   /**
@@ -556,110 +390,6 @@ class InventoryController {
         success: true,
         data: rows
       });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: error.message
-      });
-    }
-  }
-
-  /**
-   * Bulk update inventory for multiple products
-   * @param {Object} req - Express request object
-   * @param {Object} res - Express response object
-   */
-  static async bulkUpdateInventory(req, res) {
-    try {
-      const { updates } = req.body; // Array of {product_id, size, color, quantity}
-      
-      if (!Array.isArray(updates) || updates.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'Updates array is required'
-        });
-      }
-
-      const connection = await promisePool.getConnection();
-      await connection.beginTransaction();
-
-      try {
-        const results = [];
-        
-        for (const update of updates) {
-          const { product_id, size, color, quantity } = update;
-          
-          if (quantity === undefined || quantity < 0) {
-            await connection.rollback();
-            return res.status(400).json({
-              success: false,
-              message: `Invalid quantity for product ${product_id}`
-            });
-          }
-
-          const inventorySize = size || 'One Size';
-          const inventoryColor = color || 'Default';
-
-          // Check if inventory record exists
-          const [inventoryCheck] = await connection.execute(
-            'SELECT id, quantity FROM inventory WHERE product_id = ? AND size = ? AND color = ?',
-            [product_id, inventorySize, inventoryColor]
-          );
-
-          let previousQuantity = 0;
-          
-          if (inventoryCheck.length > 0) {
-            previousQuantity = inventoryCheck[0].quantity;
-            // Update existing inventory
-            await connection.execute(
-              'UPDATE inventory SET quantity = ?, updated_at = NOW() WHERE product_id = ? AND size = ? AND color = ?',
-              [parseInt(quantity), product_id, inventorySize, inventoryColor]
-            );
-          } else {
-            // Create new inventory record
-            await connection.execute(
-              'INSERT INTO inventory (product_id, size, color, quantity, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())',
-              [product_id, inventorySize, inventoryColor, parseInt(quantity)]
-            );
-          }
-
-          // Log the movement
-          await this.logInventoryMovement({
-            product_id: product_id,
-            size: inventorySize,
-            color: inventoryColor,
-            quantity_change: parseInt(quantity) - previousQuantity,
-            movement_type: 'adjustment',
-            reason: 'Bulk inventory update',
-            previous_quantity: previousQuantity,
-            new_quantity: parseInt(quantity)
-          }, connection);
-
-          results.push({
-            product_id: product_id,
-            size: inventorySize,
-            color: inventoryColor,
-            previous_quantity: previousQuantity,
-            new_quantity: parseInt(quantity),
-            change: parseInt(quantity) - previousQuantity
-          });
-        }
-
-        await connection.commit();
-        
-        res.json({
-          success: true,
-          message: `Successfully updated inventory for ${results.length} items`,
-          data: results
-        });
-
-      } catch (error) {
-        await connection.rollback();
-        throw error;
-      } finally {
-        connection.release();
-      }
-
     } catch (error) {
       res.status(500).json({
         success: false,

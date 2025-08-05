@@ -47,109 +47,6 @@ class ProductsManager {
         $('#selectAllProducts').on('change', (e) => {
             $('#productsTable tbody input[type="checkbox"]').prop('checked', e.target.checked);
         });
-
-        // Setup jQuery Validation
-        this.setupFormValidation();
-    }
-
-    setupFormValidation() {
-        // Setup jQuery Validation for product form
-        $('#productForm').validate({
-            rules: {
-                name: {
-                    required: true,
-                    minlength: 3,
-                    maxlength: 255
-                },
-                price: {
-                    required: true,
-                    number: true,
-                    min: 0.01
-                },
-                stock_quantity: {
-                    required: true,
-                    digits: true,
-                    min: 0
-                },
-                category_id: {
-                    required: false
-                },
-                description: {
-                    maxlength: 1000
-                },
-                product_images: {
-                    required: false,
-                    accept: "image/*"
-                }
-            },
-            messages: {
-                name: {
-                    required: "Product name is required",
-                    minlength: "Product name must be at least 3 characters long",
-                    maxlength: "Product name cannot exceed 255 characters"
-                },
-                price: {
-                    required: "Price is required",
-                    number: "Please enter a valid price",
-                    min: "Price must be greater than 0"
-                },
-                stock_quantity: {
-                    required: "Stock quantity is required",
-                    digits: "Please enter a whole number",
-                    min: "Stock quantity cannot be negative"
-                },
-                description: {
-                    maxlength: "Description cannot exceed 1000 characters"
-                },
-                product_images: {
-                    accept: "Please select valid image files (jpg, jpeg, png, gif, webp)"
-                }
-            },
-            errorElement: 'span',
-            errorPlacement: function(error, element) {
-                error.addClass('error');
-                element.closest('.mb-3').append(error);
-            },
-            highlight: function(element, errorClass, validClass) {
-                $(element).addClass('error').removeClass('valid');
-            },
-            unhighlight: function(element, errorClass, validClass) {
-                $(element).removeClass('error').addClass('valid');
-            },
-            submitHandler: function(form) {
-                // This will be handled by the saveProduct method
-                return false;
-            }
-        });
-
-        // Add custom validation method for image files
-        $.validator.addMethod("accept", function(value, element, param) {
-            // If no file is selected, it's valid (since it's optional)
-            if (!value) return true;
-            
-            // Get the file input element
-            const files = element.files;
-            if (!files || files.length === 0) return true;
-            
-            // Check each selected file
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                const fileType = file.type;
-                
-                // Check if it's an image file
-                if (!fileType.startsWith('image/')) {
-                    return false;
-                }
-                
-                // Check specific image types
-                const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-                if (!allowedTypes.includes(fileType)) {
-                    return false;
-                }
-            }
-            
-            return true;
-        }, "Please select valid image files only");
     }
 
     async loadCategories() {
@@ -191,9 +88,8 @@ class ProductsManager {
                         // Log image data for debugging
                         json.data.forEach((product, index) => {
                             if (index < 3) { // Log first 3 products for debugging
-                                console.log(`Product ${product.id} - "${product.name}":`, {
+                                console.log(`Product ${product.id} images:`, {
                                     main_image: product.main_image,
-                                    constructed_path: product.main_image ? `/uploads/products/${product.main_image.replace(/^\/+/, '')}` : 'No image',
                                     images: product.images,
                                     total_images: product.images ? product.images.length : 0
                                 });
@@ -224,7 +120,32 @@ class ProductsManager {
                     render: (data, type, row) => `<input type="checkbox" value="${row.id}">`
                 },
                 { data: 'id' },
-
+                {
+                    data: 'main_image',
+                    orderable: false,
+                    searchable: false,
+                    render: function(data, type, row) {
+                        if (type === 'export') return '';
+                        const initial = row.name ? row.name.charAt(0).toUpperCase() : 'P';
+                        // Always fetch from /uploads/products/
+                        let imgSrc = data
+                            ? `/uploads/products/${data.replace(/^\/+/, '')}`
+                            : '/assets/no-image.png';
+                        return `
+                            <div class="product-image-container">
+                                <div class="image-placeholder" style="display:flex;align-items:center;justify-content:center;width:48px;height:48px;background:#f3f3f3;border-radius:8px;">
+                                    <span style="font-size:1.5rem;color:#bbb;">${initial}</span>
+                                </div>
+                                <img src="${imgSrc}" 
+                                    alt="Product Image" 
+                                    class="product-thumb"
+                                    style="width:48px;height:48px;object-fit:cover;border-radius:8px;display:none;"
+                                    onload="this.style.display='block';this.previousElementSibling.style.display='none';"
+                                    onerror="this.style.display='none';this.previousElementSibling.style.display='flex';">
+                            </div>
+                        `;
+                    }
+                },
                 { data: 'name' },
                 { 
                     data: 'category_name',
@@ -281,17 +202,22 @@ class ProductsManager {
             stateDuration: 60 * 60 * 24, // Save state for 24 hours
             columnDefs: [
                 {
-                    targets: [0, 8], // Checkbox and actions columns (actions moved from 9 to 8)
+                    targets: 2, // Image column
+                    width: '100px',
+                    className: 'text-center align-middle'
+                },
+                {
+                    targets: [0, 9], // Checkbox and actions columns
                     width: '80px',
                     className: 'text-center align-middle'
                 },
                 {
-                    targets: 2, // Name column (moved from 3 to 2)
+                    targets: 3, // Name column
                     width: '200px',
                     className: 'align-middle'
                 },
                 {
-                    targets: [4, 5], // Price and Stock columns (moved from [5, 6] to [4, 5])
+                    targets: [5, 6], // Price and Stock columns
                     width: '100px',
                     className: 'text-center align-middle'
                 }
@@ -302,7 +228,7 @@ class ProductsManager {
                     text: '<i class="fas fa-file-excel"></i> Excel',
                     className: 'btn btn-success btn-sm me-1',
                     exportOptions: {
-                        columns: [1, 2, 3, 4, 5, 6, 7] // Exclude checkbox and actions
+                        columns: [1, 3, 4, 5, 6, 7, 8] // Exclude checkbox, image, and actions
                     }
                 },
                 {
@@ -310,7 +236,7 @@ class ProductsManager {
                     text: '<i class="fas fa-file-pdf"></i> PDF',
                     className: 'btn btn-danger btn-sm me-1',
                     exportOptions: {
-                        columns: [1, 2, 3, 4, 5, 6, 7] // Exclude checkbox and actions
+                        columns: [1, 3, 4, 5, 6, 7, 8]
                     }
                 },
                 {
@@ -318,7 +244,7 @@ class ProductsManager {
                     text: '<i class="fas fa-print"></i> Print',
                     className: 'btn btn-info btn-sm',
                     exportOptions: {
-                        columns: [1, 2, 3, 4, 5, 6, 7] // Exclude checkbox and actions
+                        columns: [1, 3, 4, 5, 6, 7, 8]
                     }
                 }
             ],
@@ -328,14 +254,42 @@ class ProductsManager {
             searching: true,
             searchHighlight: true,
             drawCallback: function() {
-                // Initialize tooltips
+                // Initialize tooltips for image containers
                 $('[data-bs-toggle="tooltip"]').tooltip();
+                
+                // Ensure all images are properly handled after table draw
+                $('.product-image-container img').each(function() {
+                    const img = $(this);
+                    const placeholder = img.siblings('.image-placeholder');
+                    
+                    // Check if image is already loaded
+                    if (this.complete && this.naturalHeight !== 0) {
+                        img.addClass('loaded');
+                        placeholder.hide();
+                    } else {
+                        // Handle image load event
+                        img.on('load', function() {
+                            $(this).addClass('loaded');
+                            placeholder.hide();
+                        });
+                        
+                        // Handle image error event
+                        img.on('error', function() {
+                            $(this).hide();
+                            placeholder.show();
+                            console.warn('Failed to load product image:', this.src);
+                        });
+                    }
+                });
                 
                 // Update pagination info
                 const api = this.api();
                 const info = api.page.info();
                 const pageInfo = `Page ${info.page + 1} of ${info.pages} (${info.recordsTotal} total products)`;
                 $('.dataTables_info').text(pageInfo);
+                
+                // Add debugging for images
+                console.log('DataTable draw complete. Image containers found:', $('.product-image-container').length);
             },
             language: {
                 search: "_INPUT_",
@@ -685,19 +639,6 @@ class ProductsManager {
     }
 
     async saveProduct() {
-        // Validate form first
-        if (!$('#productForm').valid()) {
-            console.log('❌ Form validation failed');
-            Swal.fire({
-                icon: 'error',
-                title: 'Validation Error',
-                text: 'Please correct the errors in the form before submitting.',
-                timer: 3000,
-                showConfirmButton: false
-            });
-            return;
-        }
-
         const formData = new FormData($('#productForm')[0]);
         
         try {
@@ -748,13 +689,6 @@ class ProductsManager {
         $('#productForm')[0].reset();
         $('#imagePreviewArea').hide();
         $('#imagePreviewContainer').empty();
-        
-        // Clear validation errors
-        if ($('#productForm').data('validator')) {
-            $('#productForm').validate().resetForm();
-            $('#productForm').find('.error').removeClass('error');
-            $('#productForm').find('.valid').removeClass('valid');
-        }
     }
 
     refreshTable() {

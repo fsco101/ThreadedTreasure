@@ -474,17 +474,7 @@ class OrdersManager {
             return;
         }
 
-        // Show enhanced loading overlay
-        this.showStatusUpdateLoading();
-
         try {
-            // Step 1: Validate order status
-            this.updateLoadingProgress(20, 'Validating order status and permissions...', 'validate');
-            await this.delay(800);
-
-            // Step 2: Update order in database
-            this.updateLoadingProgress(45, 'Updating order in database...', 'update');
-            
             const response = await $.ajax({
                 url: `/api/orders/admin/${orderId}/status`,
                 method: 'PATCH',
@@ -497,216 +487,29 @@ class OrdersManager {
                 })
             });
 
-            // Step 3: Send notifications
-            this.updateLoadingProgress(75, 'Sending customer notification and updating inventory...', 'notify');
-            await this.delay(1000);
-
-            // Step 4: Finalize update
-            this.updateLoadingProgress(95, 'Finalizing status update...', 'complete');
-            await this.delay(500);
-
             if (response.success) {
-                // Complete loading with success
-                this.updateLoadingProgress(100, 'Status update completed successfully!', 'complete');
-                
-                // Hide loading overlay (includes delay)
-                this.hideStatusUpdateLoading();
-                
-                // Wait for loading to complete before showing success
-                setTimeout(() => {
-                    // Show enhanced success message
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Order Status Updated!',
-                        html: `
-                            <div style="text-align: left; margin-top: 1rem;">
-                                <div class="alert alert-success border-0" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, #d4edda, #c3e6cb); border-radius: 12px;">
-                                    <h6 class="alert-heading mb-2 d-flex align-items-center">
-                                        <i class="fas fa-check-circle text-success me-2"></i>
-                                        Update Successful
-                                    </h6>
-                                    <p class="mb-1"><strong>Order #${orderId}</strong> status changed to <strong class="text-uppercase text-primary">${newStatus}</strong></p>
-                                </div>
-                                <div class="d-flex flex-column gap-3">
-                                    <div class="d-flex align-items-center p-2 rounded" style="background: rgba(13, 110, 253, 0.05);">
-                                        <div class="me-3">
-                                            <div class="d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; background: linear-gradient(135deg, #0d6efd, #0a58ca); border-radius: 10px;">
-                                                <i class="fas fa-database text-white"></i>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <strong>Database Updated</strong>
-                                            <div class="text-muted small">Order status and inventory synchronized</div>
-                                        </div>
-                                    </div>
-                                    <div class="d-flex align-items-center p-2 rounded" style="background: rgba(13, 202, 240, 0.05);">
-                                        <div class="me-3">
-                                            <div class="d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; background: linear-gradient(135deg, #0dcaf0, #0aa2c0); border-radius: 10px;">
-                                                <i class="fas fa-envelope text-white"></i>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <strong>Customer Notified</strong>
-                                            <div class="text-muted small">Email notification sent successfully</div>
-                                        </div>
-                                    </div>
-                                    <div class="d-flex align-items-center p-2 rounded" style="background: rgba(220, 53, 69, 0.05);">
-                                        <div class="me-3">
-                                            <div class="d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; background: linear-gradient(135deg, #dc3545, #b02a37); border-radius: 10px;">
-                                                <i class="fas fa-file-pdf text-white"></i>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <strong>Receipt Generated</strong>
-                                            <div class="text-muted small">Updated receipt attached to email</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        `,
-                        confirmButtonText: 'Perfect!',
-                        confirmButtonColor: '#28a745',
-                        customClass: {
-                            popup: 'animated fadeInUp',
-                            confirmButton: 'btn-lg px-4'
-                        },
-                        width: 500
-                    });
-                    
-                    $('#statusUpdateModal').modal('hide');
-                    this.refreshTable();
-                }, 2000);
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    html: `
+                        <div style="text-align: left;">
+                            <p><strong>✅ Order status updated successfully</strong></p>
+                            <p><strong>📧 Email notification sent to customer</strong></p>
+                            <p><strong>📄 PDF receipt attached to email</strong></p>
+                        </div>
+                    `,
+                    confirmButtonText: 'Great!'
+                });
+                $('#statusUpdateModal').modal('hide');
+                this.refreshTable();
             } else {
-                this.hideStatusUpdateLoading();
                 this.showError('Error', response.message || 'Failed to update order status');
             }
         } catch (error) {
-            this.hideStatusUpdateLoading();
             console.error('Update status error:', error);
             const errorMessage = error.responseJSON?.message || 'Failed to update order status';
             this.showError('Error', errorMessage);
         }
-    }
-
-    // Enhanced helper method to show loading overlay
-    showStatusUpdateLoading() {
-        const modal = $('#statusUpdateModal');
-        const overlay = $('#statusUpdateLoadingOverlay');
-        const progressBar = $('#statusUpdateProgressBar');
-        
-        // Disable form elements and buttons
-        $('#newStatus').prop('disabled', true);
-        $('#statusUpdateBtn').prop('disabled', true);
-        $('#statusCancelBtn').prop('disabled', true);
-        $('#statusModalCloseBtn').prop('disabled', true);
-        
-        // Reset progress and steps
-        progressBar.css('width', '0%');
-        $('#loadingStatusText').text('Initializing update process...');
-        $('.progress-step').removeClass('active completed');
-        
-        // Update loading icon
-        $('.loading-status-icon').removeClass().addClass('loading-status-icon fas fa-cog');
-        
-        // Show overlay with enhanced animation
-        overlay.fadeIn(400, () => {
-            // Start the sparkle animation
-            this.animateSparkles();
-        });
-        modal.addClass('loading');
-        
-        // Start with initial progress
-        setTimeout(() => {
-            this.updateLoadingProgress(5, 'Preparing status update...', 'validate');
-        }, 300);
-    }
-
-    // Enhanced helper method to hide loading overlay
-    hideStatusUpdateLoading() {
-        const modal = $('#statusUpdateModal');
-        const overlay = $('#statusUpdateLoadingOverlay');
-        
-        // Show completion before hiding
-        this.updateLoadingProgress(100, 'Status update completed successfully!', 'complete');
-        $('.loading-status-icon').removeClass().addClass('loading-status-icon fas fa-check-circle loading-success-icon');
-        
-        // Wait a moment to show completion, then hide
-        setTimeout(() => {
-            // Re-enable form elements and buttons
-            $('#newStatus').prop('disabled', false);
-            $('#statusUpdateBtn').prop('disabled', false);
-            $('#statusCancelBtn').prop('disabled', false);
-            $('#statusModalCloseBtn').prop('disabled', false);
-            
-            // Hide overlay with enhanced animation
-            overlay.fadeOut(400);
-            modal.removeClass('loading');
-        }, 1500);
-    }
-
-    // Enhanced helper method to update loading progress
-    updateLoadingProgress(percentage, message, step = null) {
-        const progressBar = $('#statusUpdateProgressBar');
-        const loadingText = $('#loadingStatusText');
-        
-        // Update progress bar with smooth animation
-        progressBar.css('width', `${percentage}%`);
-        loadingText.text(message);
-        
-        // Update progress steps
-        if (step) {
-            this.updateProgressSteps(step);
-        }
-        
-        // Update loading icon based on progress
-        if (percentage >= 100) {
-            $('.loading-status-icon').removeClass().addClass('loading-status-icon fas fa-check-circle');
-        } else if (percentage >= 75) {
-            $('.loading-status-icon').removeClass().addClass('loading-status-icon fas fa-envelope');
-        } else if (percentage >= 50) {
-            $('.loading-status-icon').removeClass().addClass('loading-status-icon fas fa-database');
-        } else if (percentage >= 25) {
-            $('.loading-status-icon').removeClass().addClass('loading-status-icon fas fa-search');
-        }
-        
-        // Enhanced progress bar animation
-        progressBar.addClass('progress-bar-animated');
-    }
-
-    // New method to update progress steps
-    updateProgressSteps(currentStep) {
-        const steps = ['validate', 'update', 'notify', 'complete'];
-        const currentIndex = steps.indexOf(currentStep);
-        
-        $('.progress-step').each((index, element) => {
-            const $step = $(element);
-            const stepName = $step.data('step');
-            const stepIndex = steps.indexOf(stepName);
-            
-            $step.removeClass('active completed');
-            
-            if (stepIndex < currentIndex) {
-                $step.addClass('completed');
-            } else if (stepIndex === currentIndex) {
-                $step.addClass('active');
-            }
-        });
-    }
-
-    // New method to animate sparkles
-    animateSparkles() {
-        const sparkles = $('.sparkle');
-        sparkles.each((index, sparkle) => {
-            const delay = Math.random() * 2000;
-            setTimeout(() => {
-                $(sparkle).css('animation-play-state', 'running');
-            }, delay);
-        });
-    }
-
-    // Helper method to create delay for better UX
-    delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
     }
 
     // ...existing code...
